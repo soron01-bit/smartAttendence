@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1 style="text-align: center; font-size: 3rem; margin-top: 2rem;">Face-Based Smart Attendance</h1>
+<p class="subtitle" style="text-align: center; max-width: 600px; margin: 0 auto 3rem auto; font-size: 1.1rem;">
+    A futuristic, secure, and fast system to manage student and teacher attendances using AI-powered facial recognition.
+</p>
+
+<div class="hero-grid">
+    <a href="/register/?role=student" class="action-card">
+        <div class="action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        </div>
+        <h2>Student Reg.</h2>
+        <p>Enroll a new Student</p>
+    </a>
+    
+    <a href="/register/?role=teacher" class="action-card">
+        <div class="action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h2>Teacher Reg.</h2>
+        <p>Enroll a new Teacher</p>
+    </a>
+
+    <a href="/attendance/" class="action-card">
+        <div class="action-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h2>Mark Attendance</h2>
+        <p>Scan face to log attendance</p>
+    </a>
+</div>
+{% endblock %}

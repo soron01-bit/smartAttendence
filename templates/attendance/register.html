@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Register New User</h1>
+    <p class="subtitle">Follow the on-screen instructions to prove liveness.</p>
+
+    <!-- UI Prompt for Liveliness -->
+    <div id="livenessPrompt" style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 1rem; text-align: center; font-weight: bold; font-size: 1.2rem; border-radius: 10px; margin-bottom: 1rem;">
+        Step 1: Look directly at the camera
+    </div>
+
+    <div class="video-container" id="videoContainer">
+        <video id="video" autoplay muted playsinline></video>
+        <div class="loading-text" id="loadingText">
+            <div class="spinner"></div>
+            Loading AI Models...
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" placeholder="E.g. John Doe">
+    </div>
+    
+    <div id="dynamicFields"></div>
+
+    <button class="btn" id="scanBtn" disabled>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h5v5"/><path d="M9.5 4h-5v5"/><path d="M14.5 20h5v-5"/><path d="M9.5 20h-5v-5"/><circle cx="12" cy="12" r="3"/></svg>
+        Complete Registration
+    </button>
+    <div id="statusMessage" class="status-message"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const video = document.getElementById('video');
+    const scanBtn = document.getElementById('scanBtn');
+    const loadingText = document.getElementById('loadingText');
+    const statusMessage = document.getElementById('statusMessage');
+    const videoContainer = document.getElementById('videoContainer');
+    const livenessPrompt = document.getElementById('livenessPrompt');
+
+    let currentDescriptor = null;
+    let livenessState = 0; 
+    let hasBlinked = false;
+    let hasTurnedHead = false;
+
+    function showStatus(message, isSuccess = false) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message show ${isSuccess ? 'status-success' : 'status-error'}`;
+        setTimeout(() => {
+            if(!isSuccess) statusMessage.classList.remove('show');
+        }, 5000);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get('role');
+    const dynamicFields = document.getElementById('dynamicFields');
+
+    if (role === 'student') {
+        dynamicFields.innerHTML = `
+            <div class="input-group">
+                <label for="gradeClass">Class / Grade</label>
+                <input type="text" id="gradeClass" placeholder="E.g. Grade 10">
+            </div>
+            <div class="input-group">
+                <label for="rollNumber">Roll Number</label>
+                <input type="text" id="rollNumber" placeholder="E.g. 42">
+            </div>
+        `;
+    } else if (role === 'teacher') {
+        dynamicFields.innerHTML = `
+            <div class="input-group">
+                <label for="department">Department</label>
+                <input type="text" id="department" placeholder="E.g. Mathematics">
+            </div>
+        `;
+    } else {
+        // Redir if no valid role
+        window.location.href = "/";
+    }
+
+    function calculateEAR(eye) {
+        // compute the euclidean distances between the two sets of vertical eye landmarks
+        const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+        const d2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+        // compute the euclidean distance between the horizontal eye landmark (x, y)-coordinates
+        const d3 = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+        // compute the eye aspect ratio
+        return (d1 + d2) / (2.0 * d3);
+    }
+
+    async function init() {
+        try {
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri('/static/models'),
+                faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
+                faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
+            ]);
+            
+            loadingText.style.display = 'none';
+            
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+            
+            video.onplay = () => {
+                const canvas = faceapi.createCanvasFromMedia(video);
+                videoContainer.append(canvas);
+                const displaySize = { width: video.clientWidth, height: video.clientHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                async function processFrame() {
+                    if (livenessState === 3) return; // already finished checking
+
+                    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+                    
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                    if (detection) {
+                        const resizedDetections = faceapi.resizeResults(detection, displaySize);
+                        faceapi.draw.drawDetections(canvas, resizedDetections);
+                        faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+
+                        const landmarks = detection.landmarks;
+                        
+                        // Liveliness Logic
+                        if (livenessState === 0) {
+                            livenessPrompt.textContent = "Please Blink slowly and Turn your head";
+                            livenessPrompt.style.borderColor = "yellow";
+                            livenessState = 1; // indicates tracking started
+                            currentDescriptor = detection.descriptor; // Capture straight face descriptor
+                        } 
+                        else if (livenessState === 1) {
+                            // Check Blink
+                            if (!hasBlinked) {
+                                const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                                if (avgEAR < 0.28) hasBlinked = true;
+                            }
+
+                            // Check Head Turn
+                            if (!hasTurnedHead) {
+                                const noseTip = landmarks.getNose()[3];
+                                const jaw = landmarks.getJawOutline();
+                                const distLeft = noseTip.x - jaw[0].x;
+                                const distRight = jaw[16].x - noseTip.x;
+                                if (distLeft / distRight > 1.8 || distRight / distLeft > 1.8) hasTurnedHead = true;
+                            }
+
+                            // Dynamic prompt updates
+                            if (hasBlinked && !hasTurnedHead) {
+                                livenessPrompt.textContent = "Blink verified! Now Turn your head.";
+                                livenessPrompt.style.color = "white";
+                            } else if (!hasBlinked && hasTurnedHead) {
+                                livenessPrompt.textContent = "Turn verified! Now Blink slowly.";
+                                livenessPrompt.style.color = "white";
+                            }
+
+                            // Both Verified
+                            if (hasBlinked && hasTurnedHead) {
+                                livenessPrompt.textContent = "Liveliness verified! Click Complete Registration";
+                                livenessPrompt.style.background = "rgba(16, 185, 129, 0.2)";
+                                livenessPrompt.style.borderColor = "var(--accent)";
+                                livenessState = 3;
+                                scanBtn.disabled = false;
+                            }
+                        }
+
+                    } else {
+                        // Reset if face lost
+                        livenessPrompt.textContent = "Face lost. Please look at the camera.";
+                        livenessPrompt.style.borderColor = "red";
+                        livenessState = 0;
+                        hasBlinked = false;
+                        hasTurnedHead = false;
+                        scanBtn.disabled = true;
+                    }
+
+                    // Loop continuously without hard wait
+                    setTimeout(processFrame, 20); 
+                }
+                
+                // Start tracking loop
+                processFrame();
+            };
+
+        } catch (err) {
+            loadingText.innerHTML = `Error: ${err.message}`;
+            console.error(err);
+        }
+    }
+
+    scanBtn.addEventListener('click', async () => {
+        const name = document.getElementById('name').value.trim();
+        
+        let extraParams = {};
+        if (role === 'student') {
+            extraParams.grade_class = document.getElementById('gradeClass').value.trim();
+            extraParams.roll_number = document.getElementById('rollNumber').value.trim();
+        } else if (role === 'teacher') {
+            extraParams.department = document.getElementById('department').value.trim();
+        }
+
+        if(!name) {
+            showStatus('Please enter a name');
+            return;
+        }
+
+        if(livenessState !== 3 || !currentDescriptor) {
+            showStatus('Liveliness check failed. Please refresh and try again.');
+            return;
+        }
+
+        scanBtn.disabled = true;
+        scanBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div> Processing...';
+
+        try {
+            const descriptorArray = Array.from(currentDescriptor);
+
+            const response = await fetch('/api/register/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    role: role,
+                    descriptor: descriptorArray,
+                    ...extraParams
+                })
+            });
+
+            const data = await response.json();
+            
+            if(data.success) {
+                const finalMsg = `${data.message}\nYour ID: ${data.user_id}\nYour Password: ${data.password}\n\nPlease save this password.`;
+                showStatus(finalMsg, true);
+                statusMessage.style.whiteSpace = "pre-line"; // Allow multiline correctly
+                statusMessage.style.padding = "2rem"; // Make it bigger
+                statusMessage.style.fontSize = "1.1rem";
+
+                document.getElementById('name').value = '';
+                livenessState = -1; // disable further actions
+                video.srcObject.getTracks().forEach(t => t.stop()); // stop cam
+            } else {
+                showStatus(data.message);
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = 'Complete Registration';
+            }
+        } catch(err) {
+            showStatus(`Error during capture: ${err.message}`);
+            scanBtn.disabled = false;
+            scanBtn.innerHTML = 'Complete Registration';
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

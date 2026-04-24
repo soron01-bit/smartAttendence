@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Mark Attendance</h1>
+    <p class="subtitle">Look directly at the camera for 2 seconds.</p>
+
+    <div class="video-container" id="videoContainer">
+        <video id="video" autoplay muted playsinline></video>
+        <div class="loading-text" id="loadingText">
+            <div class="spinner"></div>
+            Loading AI & GPS...
+        </div>
+        
+        <!-- Progress bar overlay -->
+        <div id="progressOverlay" style="position: absolute; bottom: 0; left: 0; height: 10px; background: var(--accent); width: 0%; transition: width 0.1s linear;"></div>
+    </div>
+
+    <div id="statusMessage" class="status-message"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const video = document.getElementById('video');
+    const loadingText = document.getElementById('loadingText');
+    const statusMessage = document.getElementById('statusMessage');
+    const videoContainer = document.getElementById('videoContainer');
+    const progressOverlay = document.getElementById('progressOverlay');
+
+    let currentLat = null;
+    let currentLon = null;
+    let isProcessing = false;
+    let faceHoldStartTime = 0;
+    const HOLD_TIME_REQUIRED = 2000; // 2 seconds
+
+    function showStatus(message, isSuccess = false) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message show ${isSuccess ? 'status-success' : 'status-error'}`;
+    }
+
+    async function init() {
+        try {
+            // Get Location first
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+                },
+                (err) => {
+                    showStatus('Location access denied. Cannot mark attendance.', false);
+                    console.error(err);
+                }
+            );
+
+            // Load models
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri('/static/models'),
+                faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
+                faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
+            ]);
+            
+            // Start webcam
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+            
+            video.onplay = () => {
+                loadingText.style.display = 'none';
+                
+                // Overlay canvas
+                const canvas = faceapi.createCanvasFromMedia(video);
+                videoContainer.append(canvas);
+                const displaySize = { width: video.clientWidth, height: video.clientHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                setInterval(async () => {
+                    if (isProcessing) return;
+
+                    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+                    
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                    if (detection) {
+                        const resizedDetections = faceapi.resizeResults(detection, displaySize);
+                        faceapi.draw.drawDetections(canvas, resizedDetections);
+                        
+                        if (faceHoldStartTime === 0) {
+                            faceHoldStartTime = Date.now();
+                        } else {
+                            const heldTime = Date.now() - faceHoldStartTime;
+                            const percentage = Math.min((heldTime / HOLD_TIME_REQUIRED) * 100, 100);
+                            progressOverlay.style.width = percentage + '%';
+
+                            if (heldTime >= HOLD_TIME_REQUIRED) {
+                                isProcessing = true;
+                                submitAttendance(detection.descriptor);
+                            }
+                        }
+                    } else {
+                        faceHoldStartTime = 0;
+                        progressOverlay.style.width = '0%';
+                    }
+                }, 100);
+            };
+
+        } catch (err) {
+            loadingText.innerHTML = `Error: ${err.message}`;
+            console.error(err);
+        }
+    }
+
+    async function submitAttendance(descriptor) {
+        if (!currentLat || !currentLon) {
+            showStatus('Still fetching GPS or GPS denied. Please try again or allow location.');
+            isProcessing = false;
+            faceHoldStartTime = 0;
+            progressOverlay.style.width = '0%';
+            return;
+        }
+
+        showStatus('Processing attendance...', false);
+
+        try {
+            const response = await fetch('/api/match/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    descriptor: Array.from(descriptor),
+                    lat: currentLat,
+                    lon: currentLon
+                })
+            });
+
+            const data = await response.json();
+            
+            if(data.success) {
+                showStatus(data.message, true);
+                // Keep showing success, freeze process
+            } else {
+                showStatus(data.message);
+                // Allow trying again after a delay
+                setTimeout(() => {
+                    isProcessing = false;
+                    faceHoldStartTime = 0;
+                    progressOverlay.style.width = '0%';
+                }, 3000);
+            }
+        } catch(err) {
+            showStatus(`Error: ${err.message}`);
+            setTimeout(() => {
+                isProcessing = false;
+                faceHoldStartTime = 0;
+                progressOverlay.style.width = '0%';
+            }, 3000);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

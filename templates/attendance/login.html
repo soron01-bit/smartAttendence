@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card" style="max-width: 400px;">
+    <h1>User Login</h1>
+    <p class="subtitle">Access your personal dashboard.</p>
+
+    <div class="input-group">
+        <label for="userId">User ID</label>
+        <input type="text" id="userId" placeholder="E.g. STU-ABC12">
+    </div>
+    
+    <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your auto-generated password">
+    </div>
+
+    <button class="btn" id="loginBtn">
+        Login
+    </button>
+    <div id="statusMessage" class="status-message"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const loginBtn = document.getElementById('loginBtn');
+    const statusMessage = document.getElementById('statusMessage');
+
+    function showStatus(message, isSuccess = false) {
+        statusMessage.textContent = message;
+        statusMessage.className = `status-message show ${isSuccess ? 'status-success' : 'status-error'}`;
+    }
+
+    loginBtn.addEventListener('click', async () => {
+        const userId = document.getElementById('userId').value.trim();
+        const password = document.getElementById('password').value.trim();
+
+        if(!userId || !password) {
+            showStatus('Please enter your ID and password');
+            return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div> Authenticating...';
+
+        try {
+            const response = await fetch('/api/login/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+            
+            if(data.success) {
+                showStatus(data.message, true);
+                setTimeout(() => window.location.href = "/dashboard/", 1000);
+            } else {
+                showStatus(data.message);
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = 'Login';
+            }
+        } catch(err) {
+            showStatus(`Error: ${err.message}`);
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Login';
+        }
+    });
+
+    // Enter key support
+    document.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            loginBtn.click();
+        }
+    });
+</script>
+{% endblock %}
