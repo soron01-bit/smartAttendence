@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Institute Dashboard</h1>
+    <p class="subtitle">Welcome, {{ institute.name }}</p>
+
+    <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 10px; margin-bottom: 2rem;">
+        <h3>Your Unique Code</h3>
+        <p style="font-size: 1.5rem; font-weight: bold; color: var(--accent); margin-top: 0.5rem;">{{ institute.unique_code }}</p>
+        <small>Share this code with your students and teachers for registration.</small>
+    </div>
+    
+    <div class="input-group">
+        <label for="lat">Latitude</label>
+        <input type="text" id="lat" value="{{ institute.latitude }}">
+    </div>
+    <div class="input-group">
+        <label for="lon">Longitude</label>
+        <input type="text" id="lon" value="{{ institute.longitude }}">
+    </div>
+
+    <button class="btn" id="updateBtn">Update Location</button>
+    <button class="btn" id="getLocationBtn" style="margin-top: 1rem; background: var(--surface); color: var(--text);">Auto-Detect Location</button>
+    <div id="statusMessage" class="status-message"></div>
+
+    <div style="margin-top: 3rem;">
+        <h2 style="margin-bottom: 1rem;">Registered Students & Teachers</h2>
+        {% if members %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
+                        <th style="padding: 1rem;">User ID</th>
+                        <th style="padding: 1rem;">Name</th>
+                        <th style="padding: 1rem;">Role</th>
+                        <th style="padding: 1rem;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr style="border-bottom: 1px solid var(--border);" id="row-{{ member.user_id }}">
+                        <td style="padding: 1rem; font-family: monospace;">{{ member.user_id }}</td>
+                        <td style="padding: 1rem; font-weight: 500;">{{ member.name }}</td>
+                        <td style="padding: 1rem; text-transform: capitalize;">{{ member.role }}</td>
+                        <td style="padding: 1rem;">
+                            <button onclick="deleteUser('{{ member.user_id }}')" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid #ef4444; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color: var(--text-muted);">No students or teachers are currently registered under this institute.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('updateBtn').addEventListener('click', async () => {
+        const lat = document.getElementById('lat').value;
+        const lon = document.getElementById('lon').value;
+        const statusMessage = document.getElementById('statusMessage');
+
+        const res = await fetch('/api/institute/update_location/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ lat, lon })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            statusMessage.textContent = data.message;
+            statusMessage.className = 'status-message show status-success';
+        } else {
+            statusMessage.textContent = data.message;
+            statusMessage.className = 'status-message show status-error';
+        }
+    });
+
+    document.getElementById('getLocationBtn').addEventListener('click', () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                document.getElementById('lat').value = position.coords.latitude;
+                document.getElementById('lon').value = position.coords.longitude;
+            }, (error) => {
+                alert('Error getting location: ' + error.message);
+            });
+        } else {
+            alert('Geolocation is not supported by this browser.');
+        }
+    });
+
+    async function deleteUser(userId) {
+        if (!confirm(`Are you sure you want to delete user ${userId}? This cannot be undone.`)) {
+            return;
+        }
+
+        const res = await fetch('/api/institute/delete_user/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById(`row-${userId}`).remove();
+        } else {
+            alert(data.message);
+        }
+    }
+</script>
+{% endblock %}

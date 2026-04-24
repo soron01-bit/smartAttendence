@@ -8,6 +8,22 @@ def generate_unique_id():
     random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"ID-{random_str}"
 
+def generate_institute_code():
+    random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"INST-{random_str}"
+
+class Institute(models.Model):
+    name = models.CharField(max_length=200)
+    unique_code = models.CharField(max_length=15, unique=True, default=generate_institute_code)
+    password = models.CharField(max_length=128)
+    latitude = models.FloatField(default=0.0)
+    longitude = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.unique_code})"
+
+
 class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('student', 'Student'),
@@ -17,6 +33,7 @@ class UserProfile(models.Model):
     user_id = models.CharField(max_length=10, unique=True, default=generate_unique_id)
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='members', null=True, blank=True)
     
     # Specific fields
     department = models.CharField(max_length=100, blank=True, null=True)     # For teachers

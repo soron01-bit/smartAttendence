@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Register Institute</h1>
+    <p class="subtitle">Register your institute to get a unique code for your students.</p>
+    
+    <div class="input-group">
+        <label for="name">Institute Name</label>
+        <input type="text" id="name" placeholder="E.g. XYZ College">
+    </div>
+    <div class="input-group">
+        <label for="password">Admin Password</label>
+        <input type="password" id="password" placeholder="Create a secure password">
+    </div>
+
+    <button class="btn" id="registerBtn">Register Institute</button>
+    <div id="statusMessage" class="status-message"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+        const name = document.getElementById('name').value;
+        const password = document.getElementById('password').value;
+        const statusMessage = document.getElementById('statusMessage');
+
+        if (!name || !password) {
+            statusMessage.textContent = 'Please fill all fields.';
+            statusMessage.className = 'status-message show status-error';
+            return;
+        }
+
+        const res = await fetch('/api/institute/register/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            statusMessage.textContent = `${data.message}\nYour Unique Code: ${data.unique_code}`;
+            statusMessage.style.whiteSpace = 'pre-line';
+            statusMessage.className = 'status-message show status-success';
+        } else {
+            statusMessage.textContent = data.message;
+            statusMessage.className = 'status-message show status-error';
+        }
+    });
+</script>
+{% endblock %}

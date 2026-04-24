@@ -8,12 +8,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 import datetime
-from .models import UserProfile, Attendance
+from .models import UserProfile, Attendance, Institute
 
 # Dummy configurations (can be moved to settings.py)
-SCHOOL_LAT = 22.5726
-SCHOOL_LON = 88.3639
-MAX_DISTANCE_METERS = 10000000 # High distance for testing purposes, typically 100
+MAX_DISTANCE_METERS = 100 # Maximum distance in meters to allow attendance
 LATE_CUTOFF_TIME = datetime.time(9, 0, 0)
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -46,9 +44,15 @@ def api_register(request):
             name = data.get('name')
             role = data.get('role')
             descriptor = data.get('descriptor') # Should be a list of 128 floats
+            institute_code = data.get('institute_code')
 
-            if not all([name, role, descriptor]) or len(descriptor) != 128:
-                return JsonResponse({'success': False, 'message': 'Invalid data provided.'}, status=400)
+            if not all([name, role, descriptor, institute_code]) or len(descriptor) != 128:
+                return JsonResponse({'success': False, 'message': 'Invalid data provided or missing institute code.'}, status=400)
+
+            try:
+                institute = Institute.objects.get(unique_code=institute_code)
+            except Institute.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Invalid institute code.'}, status=400)
 
             department = data.get('department', '')
             grade_class = data.get('grade_class', '')
@@ -72,6 +76,7 @@ def api_register(request):
             user_profile = UserProfile.objects.create(
                 name=name,
                 role=role,
+                institute=institute,
                 department=department,
                 grade_class=grade_class,
                 roll_number=roll_number,
@@ -103,10 +108,6 @@ def api_match(request):
 
             if lat is None or lon is None:
                 return JsonResponse({'success': False, 'message': 'Location tracking is required for attendance.'}, status=400)
-                
-            dist_to_school = haversine(float(lat), float(lon), SCHOOL_LAT, SCHOOL_LON)
-            if dist_to_school > MAX_DISTANCE_METERS:
-                return JsonResponse({'success': False, 'message': f'You are too far from the school. ({int(dist_to_school)}m away)'}, status=400)
 
             # Load all users
             profiles = UserProfile.objects.all()
@@ -124,10 +125,17 @@ def api_match(request):
                     best_match = profile
 
             # Threshold for Euclidean distance with face-api.js SSD is usually ~0.6 with un-normalized descriptors. 
-            # 0.5 is a decent strict threshold.
-            threshold = 0.5
+            # 0.55 is a balanced threshold for smooth recognition.
+            threshold = 0.55
 
             if best_match and min_dist < threshold:
+                if not best_match.institute:
+                    return JsonResponse({'success': False, 'message': 'User is not linked to any institute.'}, status=400)
+                    
+                dist_to_school = haversine(float(lat), float(lon), best_match.institute.latitude, best_match.institute.longitude)
+                if dist_to_school > MAX_DISTANCE_METERS:
+                    return JsonResponse({'success': False, 'message': f'You are too far from your institute. ({int(dist_to_school)}m away)'}, status=400)
+
                 # Check for double attendance safely using exact bounds (fixing SQLite __date bugs)
                 now = timezone.localtime()
                 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -156,7 +164,8 @@ def api_match(request):
                     'distance': min_dist
                 })
             else:
-                return JsonResponse({'success': False, 'message': 'Face not recognized.'}, status=404)
+                msg = f'Face not recognized. (Score: {min_dist:.2f}, needs < {threshold})' if min_dist != float('inf') else 'Face not recognized.'
+                return JsonResponse({'success': False, 'message': msg}, status=404)
 
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
@@ -275,3 +284,115 @@ def api_rescan_face(request):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False}, status=405)
+
+# --- INSTITUTE VIEWS ---
+
+def institute_register_view(request):
+    return render(request, 'attendance/institute_register.html')
+
+def institute_login_view(request):
+    if request.session.get('institute_id'):
+        return redirect('institute_dashboard')
+    return render(request, 'attendance/institute_login.html')
+
+def institute_dashboard_view(request):
+    institute_id = request.session.get('institute_id')
+    if not institute_id:
+        return redirect('institute_login')
+    try:
+        institute = Institute.objects.get(id=institute_id)
+        members = institute.members.all().order_by('-created_at')
+        return render(request, 'attendance/institute_dashboard.html', {'institute': institute, 'members': members})
+    except Institute.DoesNotExist:
+        request.session.flush()
+        return redirect('institute_login')
+
+@csrf_exempt
+def api_institute_register(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            name = data.get('name')
+            password = data.get('password')
+            if not name or not password:
+                return JsonResponse({'success': False, 'message': 'Provide Name and Password.'}, status=400)
+
+            institute = Institute.objects.create(
+                name=name,
+                password=make_password(password)
+            )
+            return JsonResponse({
+                'success': True,
+                'message': 'Institute registered successfully!',
+                'unique_code': institute.unique_code
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_institute_login(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            unique_code = data.get('unique_code')
+            password = data.get('password')
+
+            if not unique_code or not password:
+                return JsonResponse({'success': False, 'message': 'Provide Unique Code and Password.'}, status=400)
+
+            institute = Institute.objects.get(unique_code=unique_code)
+            if check_password(password, institute.password):
+                request.session['institute_id'] = institute.id
+                return JsonResponse({'success': True, 'message': 'Login successful'})
+            else:
+                return JsonResponse({'success': False, 'message': 'Invalid password.'}, status=401)
+        except Institute.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Institute not found.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_update_institute_location(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            lat = data.get('lat')
+            lon = data.get('lon')
+            if lat is None or lon is None:
+                return JsonResponse({'success': False, 'message': 'Latitude and longitude are required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            institute.latitude = float(lat)
+            institute.longitude = float(lon)
+            institute.save()
+            return JsonResponse({'success': True, 'message': 'Location updated successfully.'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_institute_delete_user(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            if not user_id:
+                return JsonResponse({'success': False, 'message': 'User ID required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            user_to_delete = UserProfile.objects.get(user_id=user_id, institute=institute)
+            user_to_delete.delete()
+            return JsonResponse({'success': True, 'message': 'User deleted successfully.'})
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'User not found or does not belong to your institute.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)

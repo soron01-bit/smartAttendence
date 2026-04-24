@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+    <h1>Institute Login</h1>
+    <p class="subtitle">Manage your institute's GPS coordinates.</p>
+    
+    <div class="input-group">
+        <label for="code">Institute Unique Code</label>
+        <input type="text" id="code" placeholder="E.g. INST-123456">
+    </div>
+    <div class="input-group">
+        <label for="password">Admin Password</label>
+        <input type="password" id="password" placeholder="Enter password">
+    </div>
+
+    <button class="btn" id="loginBtn">Login</button>
+    <div id="statusMessage" class="status-message"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+        const unique_code = document.getElementById('code').value;
+        const password = document.getElementById('password').value;
+        const statusMessage = document.getElementById('statusMessage');
+
+        if (!unique_code || !password) {
+            statusMessage.textContent = 'Please fill all fields.';
+            statusMessage.className = 'status-message show status-error';
+            return;
+        }
+
+        const res = await fetch('/api/institute/login/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ unique_code, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            window.location.href = '/institute/dashboard/';
+        } else {
+            statusMessage.textContent = data.message;
+            statusMessage.className = 'status-message show status-error';
+        }
+    });
+</script>
+{% endblock %}

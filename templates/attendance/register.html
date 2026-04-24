@@ -22,7 +22,13 @@
         <label for="name">Full Name</label>
         <input type="text" id="name" placeholder="E.g. John Doe">
     </div>
+
+    <div class="input-group">
+        <label for="instituteCode">Institute Unique Code</label>
+        <input type="text" id="instituteCode" placeholder="E.g. INST-123456">
+    </div>
     
+
     <div id="dynamicFields"></div>
 
     <button class="btn" id="scanBtn" disabled>
@@ -193,6 +199,7 @@
 
     scanBtn.addEventListener('click', async () => {
         const name = document.getElementById('name').value.trim();
+        const instituteCode = document.getElementById('instituteCode').value.trim();
         
         let extraParams = {};
         if (role === 'student') {
@@ -202,8 +209,8 @@
             extraParams.department = document.getElementById('department').value.trim();
         }
 
-        if(!name) {
-            showStatus('Please enter a name');
+        if(!name || !instituteCode) {
+            showStatus('Please enter a name and institute code');
             return;
         }
 
@@ -227,6 +234,7 @@
                     name: name,
                     role: role,
                     descriptor: descriptorArray,
+                    institute_code: instituteCode,
                     ...extraParams
                 })
             });
