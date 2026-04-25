@@ -107,6 +107,28 @@
         text-align: center;
         color: #a1a1aa;
     }
+
+    .logout-filter-btn {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .logout-filter-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%) !important;
+    }
+    
+    .logout-filter-btn:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 5px rgba(239, 68, 68, 0.3);
+    }
 </style>
 
 <div class="logs-container">
@@ -121,6 +143,14 @@
             <a href="?filter=month" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">This Month</a>
             <a href="?filter=today" class="filter-btn {% if filter_type == 'today' %}active{% endif %}">Today</a>
             <a href="{% url 'institute_dashboard' %}" class="filter-btn" style="background: var(--accent); color: #fff; border-color: var(--accent);">Back to Dashboard</a>
+            <a href="{% url 'institute_logout' %}" class="filter-btn logout-filter-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Logout
+            </a>
         </div>
     </div>
 

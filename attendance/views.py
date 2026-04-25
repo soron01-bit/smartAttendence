@@ -317,6 +317,10 @@ def institute_login_view(request):
         return redirect('institute_dashboard')
     return render(request, 'attendance/institute_login.html')
 
+def institute_logout_view(request):
+    request.session.flush()
+    return redirect('institute_login')
+
 def institute_dashboard_view(request):
     institute_id = request.session.get('institute_id')
     if not institute_id:
@@ -478,6 +482,31 @@ def api_institute_delete_attendance(request):
             return JsonResponse({'success': True, 'message': 'Attendance record deleted successfully.'})
         except Attendance.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Record not found or unauthorized.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_institute_delete(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            password = data.get('password')
+            if not password:
+                return JsonResponse({'success': False, 'message': 'Password is required to delete the account.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            if check_password(password, institute.password):
+                institute.delete()
+                request.session.flush()
+                return JsonResponse({'success': True, 'message': 'Institute deleted successfully.'})
+            else:
+                return JsonResponse({'success': False, 'message': 'Incorrect password.'}, status=401)
+        except Institute.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Institute not found.'}, status=404)
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)

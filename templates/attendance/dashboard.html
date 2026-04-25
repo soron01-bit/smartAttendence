@@ -28,8 +28,10 @@
 
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Welcome, {{ user.name }}</h1>
-    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{
-            user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
+    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{ user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
+    {% if user.institute %}
+    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1.1rem;">Institute: <span style="color: var(--primary); font-weight: bold;">{{ user.institute.name }}</span></p>
+    {% endif %}
 </div>
 <div class="db-card" style="max-width: 1000px; margin: 0 auto 2rem auto; padding: 1.5rem; text-align: center;">
     <h2 style="margin-bottom: 1rem;">Attendance Analytics</h2>
@@ -268,30 +270,33 @@
                                 maxEAR = avgEAR;
                             }
 
-                            // Check Blink (Extremely Forgiving)
+                            // Check Blink (More robust)
                             if (!hasBlinked) {
-                                // Trigger if EAR drops by just 15% OR falls below 0.25 absolute
-                                // This handles cases where the AI incorrectly draws open eyes over closed eyelids
-                                if (avgEAR < maxEAR * 0.85 || avgEAR < 0.25) {
-                                    hasBlinked = true;
+                                if (avgEAR < 0.25 || avgEAR < maxEAR * 0.75) {
+                                    blinkFrames++;
+                                    if (blinkFrames >= 2) {
+                                        hasBlinked = true;
+                                    }
+                                } else {
+                                    blinkFrames = 0;
                                 }
                             }
 
-                            // Check Head Turn
+                            // Check Head Turn (More rigorous)
                             if (!hasTurnedHead) {
                                 const noseTip = landmarks.getNose()[3];
                                 const jaw = landmarks.getJawOutline();
                                 const distLeft = noseTip.x - jaw[0].x;
                                 const distRight = jaw[16].x - noseTip.x;
-                                if (distLeft / distRight > 1.8 || distRight / distLeft > 1.8) hasTurnedHead = true;
+                                if (distLeft / distRight > 2.2 || distRight / distLeft > 2.2) hasTurnedHead = true;
                             }
 
                             // Dynamic prompt updates
                             if (hasBlinked && !hasTurnedHead) {
-                                livenessPrompt.textContent = "Blink verified! Now Turn your head.";
+                                livenessPrompt.textContent = "Blink detected! Now Turn your head left or right.";
                                 livenessPrompt.style.color = "white";
                             } else if (!hasBlinked && hasTurnedHead) {
-                                livenessPrompt.textContent = "Turn verified! Now Blink slowly.";
+                                livenessPrompt.textContent = "Head Turn detected! Now Blink slowly.";
                                 livenessPrompt.style.color = "white";
                             }
 
