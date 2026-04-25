@@ -12,6 +12,19 @@
         <label for="password">Admin Password</label>
         <input type="password" id="password" placeholder="Create a secure password">
     </div>
+    
+    <div class="input-group">
+        <label for="contactEmail">Contact Email (Optional)</label>
+        <input type="email" id="contactEmail" placeholder="E.g. info@xyzcollege.com">
+    </div>
+    <div class="input-group">
+        <label for="contactPhone">Contact Phone (Optional)</label>
+        <input type="text" id="contactPhone" placeholder="E.g. +1 234 567 890">
+    </div>
+    <div class="input-group">
+        <label for="address">Address (Optional)</label>
+        <textarea id="address" rows="3" placeholder="Enter institute address" style="width: 100%; padding: 0.8rem; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-color); border-radius: 8px;"></textarea>
+    </div>
 
     <button class="btn" id="registerBtn">Register Institute</button>
     <div id="statusMessage" class="status-message"></div>
@@ -23,10 +36,13 @@
     document.getElementById('registerBtn').addEventListener('click', async () => {
         const name = document.getElementById('name').value;
         const password = document.getElementById('password').value;
+        const contact_email = document.getElementById('contactEmail').value;
+        const contact_phone = document.getElementById('contactPhone').value;
+        const address = document.getElementById('address').value;
         const statusMessage = document.getElementById('statusMessage');
 
         if (!name || !password) {
-            statusMessage.textContent = 'Please fill all fields.';
+            statusMessage.textContent = 'Please fill all required fields (Name and Password).';
             statusMessage.className = 'status-message show status-error';
             return;
         }
@@ -34,7 +50,7 @@
         const res = await fetch('/api/institute/register/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, password })
+            body: JSON.stringify({ name, password, contact_email, contact_phone, address })
         });
         const data = await res.json();
 

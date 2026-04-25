@@ -9,6 +9,19 @@
         <p style="font-size: 1.5rem; font-weight: bold; color: var(--accent); margin-top: 0.5rem;">{{ institute.unique_code }}</p>
         <small>Share this code with your students and teachers for registration.</small>
     </div>
+
+    <div style="margin-bottom: 2rem;">
+        <a href="{% url 'institute_attendance_logs' %}" class="btn" style="display: block; text-align: center; background: var(--accent); color: #fff; text-decoration: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 8px;">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            View Attendance Database
+        </a>
+    </div>
     
     <div class="input-group">
         <label for="lat">Latitude</label>
@@ -18,8 +31,21 @@
         <label for="lon">Longitude</label>
         <input type="text" id="lon" value="{{ institute.longitude }}">
     </div>
+    
+    <div class="input-group">
+        <label for="contactEmail">Contact Email</label>
+        <input type="email" id="contactEmail" value="{{ institute.contact_email|default_if_none:'' }}">
+    </div>
+    <div class="input-group">
+        <label for="contactPhone">Contact Phone</label>
+        <input type="text" id="contactPhone" value="{{ institute.contact_phone|default_if_none:'' }}">
+    </div>
+    <div class="input-group">
+        <label for="address">Address</label>
+        <textarea id="address" rows="3" style="width: 100%; padding: 0.8rem; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-color); border-radius: 8px;">{{ institute.address|default_if_none:'' }}</textarea>
+    </div>
 
-    <button class="btn" id="updateBtn">Update Location</button>
+    <button class="btn" id="updateBtn">Update Institute Details</button>
     <button class="btn" id="getLocationBtn" style="margin-top: 1rem; background: var(--surface); color: var(--text);">Auto-Detect Location</button>
     <div id="statusMessage" class="status-message"></div>
 
@@ -62,12 +88,15 @@
     document.getElementById('updateBtn').addEventListener('click', async () => {
         const lat = document.getElementById('lat').value;
         const lon = document.getElementById('lon').value;
+        const contact_email = document.getElementById('contactEmail').value;
+        const contact_phone = document.getElementById('contactPhone').value;
+        const address = document.getElementById('address').value;
         const statusMessage = document.getElementById('statusMessage');
 
-        const res = await fetch('/api/institute/update_location/', {
+        const res = await fetch('/api/institute/update_details/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ lat, lon })
+            body: JSON.stringify({ lat, lon, contact_email, contact_phone, address })
         });
         const data = await res.json();
 

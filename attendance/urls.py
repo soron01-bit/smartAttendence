@@ -18,6 +18,8 @@ urlpatterns = [
     path('institute/dashboard/', views.institute_dashboard_view, name='institute_dashboard'),
     path('api/institute/register/', views.api_institute_register, name='api_institute_register'),
     path('api/institute/login/', views.api_institute_login, name='api_institute_login'),
-    path('api/institute/update_location/', views.api_update_institute_location, name='api_update_institute_location'),
+    path('api/institute/update_details/', views.api_update_institute_details, name='api_update_institute_details'),
     path('api/institute/delete_user/', views.api_institute_delete_user, name='api_institute_delete_user'),
+    path('institute/attendance-logs/', views.institute_attendance_logs_view, name='institute_attendance_logs'),
+    path('api/institute/delete_attendance/', views.api_institute_delete_attendance, name='api_institute_delete_attendance'),
 ]

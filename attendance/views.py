@@ -70,6 +70,12 @@ def api_register(request):
             if min_dist < 0.5:
                 return JsonResponse({'success': False, 'message': 'This face is already registered in the system.'}, status=400)
 
+            # Detailed Profile Fields
+            phone_number = data.get('phone_number', '')
+            blood_group = data.get('blood_group', '')
+            guardian_name = data.get('guardian_name', '')
+            designation = data.get('designation', '')
+
             # Generate secure random password
             raw_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
@@ -80,6 +86,10 @@ def api_register(request):
                 department=department,
                 grade_class=grade_class,
                 roll_number=roll_number,
+                phone_number=phone_number,
+                blood_group=blood_group,
+                guardian_name=guardian_name,
+                designation=designation,
                 password=make_password(raw_password),
                 face_encoding=json.dumps(descriptor)
             )
@@ -190,11 +200,19 @@ def dashboard_view(request):
     try:
         user = UserProfile.objects.get(user_id=user_id)
         
-        # Calculate attendance statistics
-        # Total days the system recorded *any* attendance (proxy for total class days)
-        total_class_days = Attendance.objects.dates('timestamp', 'day').count()
-        # Total days this user was present
-        total_attended = Attendance.objects.filter(user=user).count()
+        # Calculate attendance statistics safely avoiding SQLite date bugs
+        # Get all attendance timestamps for the user's institute
+        if user.institute:
+            institute_attendances = Attendance.objects.filter(user__institute=user.institute).values_list('timestamp', flat=True)
+        else:
+            institute_attendances = Attendance.objects.all().values_list('timestamp', flat=True)
+            
+        # Extract unique dates in Python
+        total_class_days = len(set(timezone.localtime(dt).date() for dt in institute_attendances if dt))
+        
+        # Total days this user was present (unique dates)
+        user_attendances = Attendance.objects.filter(user=user).values_list('timestamp', flat=True)
+        total_attended = len(set(timezone.localtime(dt).date() for dt in user_attendances if dt))
         
         attendance_percentage = 0
         if total_class_days > 0:
@@ -253,6 +271,10 @@ def api_update_profile(request):
             if 'department' in data: user.department = data['department']
             if 'grade_class' in data: user.grade_class = data['grade_class']
             if 'roll_number' in data: user.roll_number = data['roll_number']
+            if 'phone_number' in data: user.phone_number = data['phone_number']
+            if 'blood_group' in data: user.blood_group = data['blood_group']
+            if 'guardian_name' in data: user.guardian_name = data['guardian_name']
+            if 'designation' in data: user.designation = data['designation']
             
             user.save()
             return JsonResponse({'success': True, 'message': 'Profile updated successfully'})
@@ -314,12 +336,19 @@ def api_institute_register(request):
             data = json.loads(request.body)
             name = data.get('name')
             password = data.get('password')
+            contact_email = data.get('contact_email', '')
+            contact_phone = data.get('contact_phone', '')
+            address = data.get('address', '')
+            
             if not name or not password:
                 return JsonResponse({'success': False, 'message': 'Provide Name and Password.'}, status=400)
 
             institute = Institute.objects.create(
                 name=name,
-                password=make_password(password)
+                password=make_password(password),
+                contact_email=contact_email,
+                contact_phone=contact_phone,
+                address=address
             )
             return JsonResponse({
                 'success': True,
@@ -354,23 +383,26 @@ def api_institute_login(request):
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
 
 @csrf_exempt
-def api_update_institute_location(request):
+def api_update_institute_details(request):
     if request.method == "POST":
         institute_id = request.session.get('institute_id')
         if not institute_id:
             return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
         try:
             data = json.loads(request.body)
-            lat = data.get('lat')
-            lon = data.get('lon')
-            if lat is None or lon is None:
-                return JsonResponse({'success': False, 'message': 'Latitude and longitude are required.'}, status=400)
-            
             institute = Institute.objects.get(id=institute_id)
-            institute.latitude = float(lat)
-            institute.longitude = float(lon)
+            
+            if 'lat' in data and data['lat'] is not None and data['lat'] != '':
+                institute.latitude = float(data['lat'])
+            if 'lon' in data and data['lon'] is not None and data['lon'] != '':
+                institute.longitude = float(data['lon'])
+                
+            if 'contact_email' in data: institute.contact_email = data['contact_email']
+            if 'contact_phone' in data: institute.contact_phone = data['contact_phone']
+            if 'address' in data: institute.address = data['address']
+            
             institute.save()
-            return JsonResponse({'success': True, 'message': 'Location updated successfully.'})
+            return JsonResponse({'success': True, 'message': 'Institute details updated successfully.'})
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
@@ -393,6 +425,59 @@ def api_institute_delete_user(request):
             return JsonResponse({'success': True, 'message': 'User deleted successfully.'})
         except UserProfile.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'User not found or does not belong to your institute.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+def institute_attendance_logs_view(request):
+    institute_id = request.session.get('institute_id')
+    if not institute_id:
+        return redirect('institute_login')
+    
+    try:
+        institute = Institute.objects.get(id=institute_id)
+    except Institute.DoesNotExist:
+        return redirect('institute_login')
+
+    filter_type = request.GET.get('filter', 'all')
+    attendances = Attendance.objects.filter(user__institute=institute)
+
+    if filter_type == 'today':
+        today = timezone.localtime(timezone.now()).date()
+        attendances = attendances.filter(timestamp__date=today)
+    elif filter_type == 'month':
+        current_month = timezone.localtime(timezone.now()).month
+        current_year = timezone.localtime(timezone.now()).year
+        attendances = attendances.filter(timestamp__year=current_year, timestamp__month=current_month)
+
+    attendances = attendances.order_by('-timestamp')
+
+    context = {
+        'institute': institute,
+        'attendances': attendances,
+        'filter_type': filter_type
+    }
+    return render(request, 'attendance/institute_attendance_logs.html', context)
+
+@csrf_exempt
+def api_institute_delete_attendance(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            attendance_id = data.get('attendance_id')
+            if not attendance_id:
+                return JsonResponse({'success': False, 'message': 'Attendance ID required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            # Ensure the attendance record belongs to a user registered at this institute
+            attendance_record = Attendance.objects.get(id=attendance_id, user__institute=institute)
+            attendance_record.delete()
+            return JsonResponse({'success': True, 'message': 'Attendance record deleted successfully.'})
+        except Attendance.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Record not found or unauthorized.'}, status=404)
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)

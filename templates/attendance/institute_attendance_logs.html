@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .logs-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .header-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 2rem;
+        backdrop-filter: blur(10px);
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .filter-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text-color);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .filter-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .filter-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        font-weight: bold;
+    }
+
+    .table-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    th, td {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    th {
+        background: rgba(0, 0, 0, 0.2);
+        color: #a1a1aa;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+
+    .status-Present {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.5);
+    }
+
+    .status-Late {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.5);
+    }
+
+    .empty-state {
+        padding: 4rem 2rem;
+        text-align: center;
+        color: #a1a1aa;
+    }
+</style>
+
+<div class="logs-container">
+    <div class="header-card">
+        <div>
+            <h1 style="margin-bottom: 0.5rem; font-size: 2rem;">Attendance Logs</h1>
+            <p class="subtitle" style="margin: 0;">{{ institute.name }}</p>
+        </div>
+        
+        <div class="filter-group">
+            <a href="?filter=all" class="filter-btn {% if filter_type == 'all' %}active{% endif %}">All Time</a>
+            <a href="?filter=month" class="filter-btn {% if filter_type == 'month' %}active{% endif %}">This Month</a>
+            <a href="?filter=today" class="filter-btn {% if filter_type == 'today' %}active{% endif %}">Today</a>
+            <a href="{% url 'institute_dashboard' %}" class="filter-btn" style="background: var(--accent); color: #fff; border-color: var(--accent);">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="table-card">
+        {% if attendances %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>User ID</th>
+                        <th>Details</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendances %}
+                    <tr id="row-{{ record.id }}">
+                        <td style="white-space: nowrap;">{{ record.timestamp|date:"M d, Y - h:i A" }}</td>
+                        <td style="font-weight: bold; color: var(--text-color);">{{ record.user.name }}</td>
+                        <td><span style="color: var(--primary);">{{ record.user.get_role_display }}</span></td>
+                        <td style="font-family: monospace; color: #a1a1aa;">{{ record.user.user_id }}</td>
+                        <td style="font-size: 0.9rem; color: #a1a1aa;">
+                            {% if record.user.role == 'student' %}
+                                {{ record.user.grade_class|default:"-" }} (Roll: {{ record.user.roll_number|default:"-" }})
+                            {% else %}
+                                {{ record.user.department|default:"-" }} ({{ record.user.designation|default:"-" }})
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ record.status }}">
+                                {{ record.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="deleteAttendance('{{ record.id }}', '{{ record.user.name }}')" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid #ef4444; padding: 0.25rem 0.75rem; border-radius: 5px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: all 0.3s ease;">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <h3>No Attendance Records Found</h3>
+            <p>There are currently no attendance logs matching your filter criteria.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function deleteAttendance(attendanceId, userName) {
+        if (!confirm(`Are you sure you want to delete the attendance record for ${userName}? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/institute/delete_attendance/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ attendance_id: attendanceId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Remove the row from the table smoothly
+                const row = document.getElementById(`row-${attendanceId}`);
+                if (row) {
+                    row.style.transition = "opacity 0.3s ease";
+                    row.style.opacity = "0";
+                    setTimeout(() => row.remove(), 300);
+                }
+            } else {
+                alert(`Failed to delete record: ${data.message}`);
+            }
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        }
+    }
+</script>
+{% endblock %}

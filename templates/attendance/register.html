@@ -6,7 +6,8 @@
     <p class="subtitle">Follow the on-screen instructions to prove liveness.</p>
 
     <!-- UI Prompt for Liveliness -->
-    <div id="livenessPrompt" style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 1rem; text-align: center; font-weight: bold; font-size: 1.2rem; border-radius: 10px; margin-bottom: 1rem;">
+    <div id="livenessPrompt"
+        style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 1rem; text-align: center; font-weight: bold; font-size: 1.2rem; border-radius: 10px; margin-bottom: 1rem;">
         Step 1: Look directly at the camera
     </div>
 
@@ -27,12 +28,19 @@
         <label for="instituteCode">Institute Unique Code</label>
         <input type="text" id="instituteCode" placeholder="E.g. INST-123456">
     </div>
-    
+
 
     <div id="dynamicFields"></div>
 
     <button class="btn" id="scanBtn" disabled>
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h5v5"/><path d="M9.5 4h-5v5"/><path d="M14.5 20h5v-5"/><path d="M9.5 20h-5v-5"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 4h5v5" />
+            <path d="M9.5 4h-5v5" />
+            <path d="M14.5 20h5v-5" />
+            <path d="M9.5 20h-5v-5" />
+            <circle cx="12" cy="12" r="3" />
+        </svg>
         Complete Registration
     </button>
     <div id="statusMessage" class="status-message"></div>
@@ -49,15 +57,17 @@
     const livenessPrompt = document.getElementById('livenessPrompt');
 
     let currentDescriptor = null;
-    let livenessState = 0; 
+    let livenessState = 0;
     let hasBlinked = false;
     let hasTurnedHead = false;
+    let maxEAR = 0;
+    let blinkFrames = 0;
 
     function showStatus(message, isSuccess = false) {
         statusMessage.textContent = message;
         statusMessage.className = `status-message show ${isSuccess ? 'status-success' : 'status-error'}`;
         setTimeout(() => {
-            if(!isSuccess) statusMessage.classList.remove('show');
+            if (!isSuccess) statusMessage.classList.remove('show');
         }, 5000);
     }
 
@@ -75,12 +85,36 @@
                 <label for="rollNumber">Roll Number</label>
                 <input type="text" id="rollNumber" placeholder="E.g. 42">
             </div>
+            <div class="input-group">
+                <label for="phoneNumber">Phone Number (Optional)</label>
+                <input type="text" id="phoneNumber" placeholder="E.g. +1 234 567 890">
+            </div>
+            <div class="input-group">
+                <label for="bloodGroup">Blood Group (Optional)</label>
+                <input type="text" id="bloodGroup" placeholder="E.g. O+">
+            </div>
+            <div class="input-group">
+                <label for="guardianName">Guardian Name (Optional)</label>
+                <input type="text" id="guardianName" placeholder="E.g. Jane Doe">
+            </div>
         `;
     } else if (role === 'teacher') {
         dynamicFields.innerHTML = `
             <div class="input-group">
                 <label for="department">Department</label>
                 <input type="text" id="department" placeholder="E.g. Mathematics">
+            </div>
+            <div class="input-group">
+                <label for="designation">Designation</label>
+                <input type="text" id="designation" placeholder="E.g. Senior Professor">
+            </div>
+            <div class="input-group">
+                <label for="phoneNumber">Phone Number (Optional)</label>
+                <input type="text" id="phoneNumber" placeholder="E.g. +1 234 567 890">
+            </div>
+            <div class="input-group">
+                <label for="bloodGroup">Blood Group (Optional)</label>
+                <input type="text" id="bloodGroup" placeholder="E.g. O+">
             </div>
         `;
     } else {
@@ -105,12 +139,12 @@
                 faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
                 faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
             ]);
-            
+
             loadingText.style.display = 'none';
-            
+
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             video.srcObject = stream;
-            
+
             video.onplay = () => {
                 const canvas = faceapi.createCanvasFromMedia(video);
                 videoContainer.append(canvas);
@@ -121,7 +155,7 @@
                     if (livenessState === 3) return; // already finished checking
 
                     const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                    
+
                     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
                     if (detection) {
@@ -130,19 +164,31 @@
                         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
                         const landmarks = detection.landmarks;
-                        
+
                         // Liveliness Logic
                         if (livenessState === 0) {
                             livenessPrompt.textContent = "Please Blink slowly and Turn your head";
                             livenessPrompt.style.borderColor = "yellow";
                             livenessState = 1; // indicates tracking started
                             currentDescriptor = detection.descriptor; // Capture straight face descriptor
-                        } 
+                            maxEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                            blinkFrames = 0;
+                        }
                         else if (livenessState === 1) {
-                            // Check Blink
+                            const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                            
+                            // Instantly adapt max resting state to calibrate to face distance/shape
+                            if (avgEAR > maxEAR && avgEAR < 0.45) {
+                                maxEAR = avgEAR;
+                            }
+
+                            // Check Blink (Extremely Forgiving)
                             if (!hasBlinked) {
-                                const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
-                                if (avgEAR < 0.28) hasBlinked = true;
+                                // Trigger if EAR drops by just 15% OR falls below 0.25 absolute
+                                // This handles cases where the AI incorrectly draws open eyes over closed eyelids
+                                if (avgEAR < maxEAR * 0.85 || avgEAR < 0.25) {
+                                    hasBlinked = true;
+                                }
                             }
 
                             // Check Head Turn
@@ -174,19 +220,20 @@
                         }
 
                     } else {
-                        // Reset if face lost
                         livenessPrompt.textContent = "Face lost. Please look at the camera.";
                         livenessPrompt.style.borderColor = "red";
                         livenessState = 0;
                         hasBlinked = false;
                         hasTurnedHead = false;
+                        maxEAR = 0;
+                        blinkFrames = 0;
                         scanBtn.disabled = true;
                     }
 
                     // Loop continuously without hard wait
-                    setTimeout(processFrame, 20); 
+                    setTimeout(processFrame, 20);
                 }
-                
+
                 // Start tracking loop
                 processFrame();
             };
@@ -200,21 +247,26 @@
     scanBtn.addEventListener('click', async () => {
         const name = document.getElementById('name').value.trim();
         const instituteCode = document.getElementById('instituteCode').value.trim();
-        
+
         let extraParams = {};
         if (role === 'student') {
             extraParams.grade_class = document.getElementById('gradeClass').value.trim();
             extraParams.roll_number = document.getElementById('rollNumber').value.trim();
+            extraParams.guardian_name = document.getElementById('guardianName').value.trim();
         } else if (role === 'teacher') {
             extraParams.department = document.getElementById('department').value.trim();
+            extraParams.designation = document.getElementById('designation').value.trim();
         }
 
-        if(!name || !instituteCode) {
+        extraParams.phone_number = document.getElementById('phoneNumber').value.trim();
+        extraParams.blood_group = document.getElementById('bloodGroup').value.trim();
+
+        if (!name || !instituteCode) {
             showStatus('Please enter a name and institute code');
             return;
         }
 
-        if(livenessState !== 3 || !currentDescriptor) {
+        if (livenessState !== 3 || !currentDescriptor) {
             showStatus('Liveliness check failed. Please refresh and try again.');
             return;
         }
@@ -240,8 +292,8 @@
             });
 
             const data = await response.json();
-            
-            if(data.success) {
+
+            if (data.success) {
                 const finalMsg = `${data.message}\nYour ID: ${data.user_id}\nYour Password: ${data.password}\n\nPlease save this password.`;
                 showStatus(finalMsg, true);
                 statusMessage.style.whiteSpace = "pre-line"; // Allow multiline correctly
@@ -256,7 +308,7 @@
                 scanBtn.disabled = false;
                 scanBtn.innerHTML = 'Complete Registration';
             }
-        } catch(err) {
+        } catch (err) {
             showStatus(`Error during capture: ${err.message}`);
             scanBtn.disabled = false;
             scanBtn.innerHTML = 'Complete Registration';

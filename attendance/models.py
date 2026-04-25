@@ -18,6 +18,12 @@ class Institute(models.Model):
     password = models.CharField(max_length=128)
     latitude = models.FloatField(default=0.0)
     longitude = models.FloatField(default=0.0)
+    
+    # Detailed Information
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -39,6 +45,12 @@ class UserProfile(models.Model):
     department = models.CharField(max_length=100, blank=True, null=True)     # For teachers
     grade_class = models.CharField(max_length=50, blank=True, null=True)     # For students
     roll_number = models.CharField(max_length=50, blank=True, null=True)     # For students
+    
+    # Detailed Profile Fields
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    blood_group = models.CharField(max_length=5, blank=True, null=True)
+    guardian_name = models.CharField(max_length=100, blank=True, null=True)  # For students
+    designation = models.CharField(max_length=100, blank=True, null=True)    # For teachers
 
     # Authentication
     password = models.CharField(max_length=128, blank=True, null=True)

@@ -73,32 +73,40 @@
                 const displaySize = { width: video.clientWidth, height: video.clientHeight };
                 faceapi.matchDimensions(canvas, displaySize);
 
+                let isLoopRunning = false;
                 setInterval(async () => {
-                    if (isProcessing) return;
+                    if (isProcessing || isLoopRunning) return;
+                    isLoopRunning = true;
 
-                    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                    
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-
-                    if (detection) {
-                        const resizedDetections = faceapi.resizeResults(detection, displaySize);
-                        faceapi.draw.drawDetections(canvas, resizedDetections);
+                    try {
+                        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
                         
-                        if (faceHoldStartTime === 0) {
-                            faceHoldStartTime = Date.now();
-                        } else {
-                            const heldTime = Date.now() - faceHoldStartTime;
-                            const percentage = Math.min((heldTime / HOLD_TIME_REQUIRED) * 100, 100);
-                            progressOverlay.style.width = percentage + '%';
+                        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
-                            if (heldTime >= HOLD_TIME_REQUIRED) {
-                                isProcessing = true;
-                                submitAttendance(detection.descriptor);
+                        if (detection && !isProcessing) {
+                            const resizedDetections = faceapi.resizeResults(detection, displaySize);
+                            faceapi.draw.drawDetections(canvas, resizedDetections);
+                            
+                            if (faceHoldStartTime === 0) {
+                                faceHoldStartTime = Date.now();
+                            } else {
+                                const heldTime = Date.now() - faceHoldStartTime;
+                                const percentage = Math.min((heldTime / HOLD_TIME_REQUIRED) * 100, 100);
+                                progressOverlay.style.width = percentage + '%';
+
+                                if (heldTime >= HOLD_TIME_REQUIRED) {
+                                    isProcessing = true;
+                                    submitAttendance(detection.descriptor);
+                                }
                             }
+                        } else if (!detection) {
+                            faceHoldStartTime = 0;
+                            progressOverlay.style.width = '0%';
                         }
-                    } else {
-                        faceHoldStartTime = 0;
-                        progressOverlay.style.width = '0%';
+                    } catch (err) {
+                        console.error("Detection error:", err);
+                    } finally {
+                        isLoopRunning = false;
                     }
                 }, 100);
             };

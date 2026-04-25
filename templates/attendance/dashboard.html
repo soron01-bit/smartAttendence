@@ -9,6 +9,7 @@
         width: 100%;
         max-width: 1000px;
     }
+
     .db-card {
         background: var(--card-bg);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -17,6 +18,7 @@
         backdrop-filter: blur(10px);
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
+
     @media (max-width: 768px) {
         .dashboard-grid {
             grid-template-columns: 1fr;
@@ -26,22 +28,31 @@
 
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Welcome, {{ user.name }}</h1>
-    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{ user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
+    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{
+            user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
 </div>
 <div class="db-card" style="max-width: 1000px; margin: 0 auto 2rem auto; padding: 1.5rem; text-align: center;">
     <h2 style="margin-bottom: 1rem;">Attendance Analytics</h2>
     <div style="display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;">
         <div>
-            <p style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">Total Class Days</p>
+            <p
+                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
+                Total Class Days</p>
             <h3 style="font-size: 2.5rem; color: var(--text-color); margin: 0;">{{ total_class_days }}</h3>
         </div>
         <div>
-            <p style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">Days Present/Late</p>
+            <p
+                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
+                Days Present/Late</p>
             <h3 style="font-size: 2.5rem; color: var(--accent); margin: 0;">{{ total_attended }}</h3>
         </div>
         <div>
-            <p style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">Attendance %</p>
-            <h3 style="font-size: 2.5rem; color: {% if attendance_percentage >= 75 %}#10b981{% elif attendance_percentage >= 50 %}#fbbf24{% else %}#ef4444{% endif %}; margin: 0;">{{ attendance_percentage }}%</h3>
+            <p
+                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
+                Attendance %</p>
+            <h3
+                style="font-size: 2.5rem; color: {% if attendance_percentage >= 75 %}#10b981{% elif attendance_percentage >= 50 %}#fbbf24{% else %}#ef4444{% endif %}; margin: 0;">
+                {{ attendance_percentage }}%</h3>
         </div>
     </div>
 </div>
@@ -50,7 +61,7 @@
     <!-- Profile Edit Module -->
     <div class="db-card">
         <h2 style="margin-bottom: 1.5rem;">Edit Profile Details</h2>
-        
+
         <div class="input-group">
             <label for="name">Full Name</label>
             <input type="text" id="name" value="{{ user.name }}">
@@ -65,12 +76,29 @@
             <label for="rollNumber">Roll Number</label>
             <input type="text" id="rollNumber" value="{{ user.roll_number|default_if_none:'' }}">
         </div>
+        <div class="input-group">
+            <label for="guardianName">Guardian Name</label>
+            <input type="text" id="guardianName" value="{{ user.guardian_name|default_if_none:'' }}">
+        </div>
         {% elif user.role == 'teacher' %}
         <div class="input-group">
             <label for="department">Department</label>
             <input type="text" id="department" value="{{ user.department|default_if_none:'' }}">
         </div>
+        <div class="input-group">
+            <label for="designation">Designation</label>
+            <input type="text" id="designation" value="{{ user.designation|default_if_none:'' }}">
+        </div>
         {% endif %}
+
+        <div class="input-group">
+            <label for="phoneNumber">Phone Number</label>
+            <input type="text" id="phoneNumber" value="{{ user.phone_number|default_if_none:'' }}">
+        </div>
+        <div class="input-group">
+            <label for="bloodGroup">Blood Group</label>
+            <input type="text" id="bloodGroup" value="{{ user.blood_group|default_if_none:'' }}">
+        </div>
 
         <button class="btn" id="updateBtn" style="margin-top: 1rem;">
             Update Profile
@@ -81,9 +109,11 @@
     <!-- Face Rescan Module -->
     <div class="db-card">
         <h2 style="margin-bottom: 0.5rem;">Rescan Face Data</h2>
-        <p class="subtitle" style="font-size: 0.9rem; margin-bottom: 1.5rem;">Update your biometric profile using Liveliness Check.</p>
+        <p class="subtitle" style="font-size: 0.9rem; margin-bottom: 1.5rem;">Update your biometric profile using
+            Liveliness Check.</p>
 
-        <div id="livenessPrompt" style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 0.75rem; text-align: center; font-weight: bold; border-radius: 10px; margin-bottom: 1rem; font-size: 0.9rem;">
+        <div id="livenessPrompt"
+            style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 0.75rem; text-align: center; font-weight: bold; border-radius: 10px; margin-bottom: 1rem; font-size: 0.9rem;">
             Press "Start Camera" to begin
         </div>
 
@@ -116,17 +146,29 @@
     updateBtn.addEventListener('click', async () => {
         updateBtn.disabled = true;
         updateBtn.innerText = 'Updating...';
-        
+
         let payload = { name: document.getElementById('name').value.trim() };
-        
+
         if (document.getElementById('gradeClass')) {
             payload.grade_class = document.getElementById('gradeClass').value.trim();
         }
         if (document.getElementById('rollNumber')) {
             payload.roll_number = document.getElementById('rollNumber').value.trim();
         }
+        if (document.getElementById('guardianName')) {
+            payload.guardian_name = document.getElementById('guardianName').value.trim();
+        }
         if (document.getElementById('department')) {
             payload.department = document.getElementById('department').value.trim();
+        }
+        if (document.getElementById('designation')) {
+            payload.designation = document.getElementById('designation').value.trim();
+        }
+        if (document.getElementById('phoneNumber')) {
+            payload.phone_number = document.getElementById('phoneNumber').value.trim();
+        }
+        if (document.getElementById('bloodGroup')) {
+            payload.blood_group = document.getElementById('bloodGroup').value.trim();
         }
 
         try {
@@ -136,14 +178,14 @@
                 body: JSON.stringify(payload)
             });
             const data = await response.json();
-            
+
             updateStatus.textContent = data.message;
             updateStatus.className = `status-message show ${data.success ? 'status-success' : 'status-error'}`;
-        } catch(err) {
+        } catch (err) {
             updateStatus.textContent = `Error: ${err.message}`;
             updateStatus.className = 'status-message show status-error';
         }
-        
+
         updateBtn.disabled = false;
         updateBtn.innerText = 'Update Profile';
         setTimeout(() => updateStatus.classList.remove('show'), 4000);
@@ -163,6 +205,8 @@
     let livenessState = -1; // -1 = off
     let hasBlinked = false;
     let hasTurnedHead = false;
+    let maxEAR = 0;
+    let blinkFrames = 0;
 
     function calculateEAR(eye) {
         const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
@@ -176,6 +220,7 @@
         videoContainer.style.display = 'flex';
         livenessPrompt.textContent = "Loading AI models...";
         rescanBtn.style.display = 'inline-flex';
+        livenessState = 0; // Initialize state to start tracking
 
         try {
             await Promise.all([
@@ -183,11 +228,11 @@
                 faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
                 faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
             ]);
-            
+
             loadingText.style.display = 'none';
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             video.srcObject = stream;
-            
+
             video.onplay = () => {
                 const canvas = faceapi.createCanvasFromMedia(video);
                 videoContainer.append(canvas);
@@ -206,18 +251,30 @@
                         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
                         const landmarks = detection.landmarks;
-                        
+
                         if (livenessState === 0) {
                             livenessPrompt.textContent = "Please Blink slowly and Turn your head";
                             livenessPrompt.style.borderColor = "yellow";
                             livenessState = 1;
                             currentDescriptor = detection.descriptor;
-                        } 
+                            maxEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                            blinkFrames = 0;
+                        }
                         else if (livenessState === 1) {
-                            // Check Blink
+                            const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                            
+                            // Instantly adapt max resting state to calibrate to face distance/shape
+                            if (avgEAR > maxEAR && avgEAR < 0.45) {
+                                maxEAR = avgEAR;
+                            }
+
+                            // Check Blink (Extremely Forgiving)
                             if (!hasBlinked) {
-                                const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
-                                if (avgEAR < 0.28) hasBlinked = true;
+                                // Trigger if EAR drops by just 15% OR falls below 0.25 absolute
+                                // This handles cases where the AI incorrectly draws open eyes over closed eyelids
+                                if (avgEAR < maxEAR * 0.85 || avgEAR < 0.25) {
+                                    hasBlinked = true;
+                                }
                             }
 
                             // Check Head Turn
@@ -253,11 +310,13 @@
                         livenessState = 0;
                         hasBlinked = false;
                         hasTurnedHead = false;
+                        maxEAR = 0;
+                        blinkFrames = 0;
                         rescanBtn.disabled = true;
                     }
                     setTimeout(processFrame, 20); // Faster recursive loop
                 }
-                
+
                 processFrame();
             };
 
@@ -267,7 +326,7 @@
     });
 
     rescanBtn.addEventListener('click', async () => {
-        if(livenessState !== 3 || !currentDescriptor) return;
+        if (livenessState !== 3 || !currentDescriptor) return;
 
         rescanBtn.disabled = true;
         rescanBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div> Saving...';
@@ -280,21 +339,21 @@
             });
 
             const data = await response.json();
-            
+
             rescanStatus.textContent = data.message;
             rescanStatus.className = `status-message show ${data.success ? 'status-success' : 'status-error'}`;
-            
-            if(data.success) {
+
+            if (data.success) {
                 setTimeout(() => {
                     // Turn off camera stream
                     video.srcObject.getTracks().forEach(t => t.stop());
-                    window.location.reload(); 
+                    window.location.reload();
                 }, 1500);
             } else {
                 rescanBtn.disabled = false;
                 rescanBtn.innerHTML = 'Save New Face Data';
             }
-        } catch(err) {
+        } catch (err) {
             rescanStatus.textContent = `Error: ${err.message}`;
             rescanStatus.className = 'status-message show status-error';
             rescanBtn.disabled = false;
