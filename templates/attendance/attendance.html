@@ -11,9 +11,11 @@
             <div class="spinner"></div>
             Loading AI & GPS...
         </div>
-        
+
         <!-- Progress bar overlay -->
-        <div id="progressOverlay" style="position: absolute; bottom: 0; left: 0; height: 10px; background: var(--accent); width: 0%; transition: width 0.1s linear;"></div>
+        <div id="progressOverlay"
+            style="position: absolute; bottom: 0; left: 0; height: 10px; background: var(--accent); width: 0%; transition: width 0.1s linear;">
+        </div>
     </div>
 
     <div id="statusMessage" class="status-message"></div>
@@ -59,56 +61,120 @@
                 faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
                 faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
             ]);
-            
+
             // Start webcam
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             video.srcObject = stream;
-            
+
             video.onplay = () => {
                 loadingText.style.display = 'none';
-                
+
                 // Overlay canvas
                 const canvas = faceapi.createCanvasFromMedia(video);
                 videoContainer.append(canvas);
                 const displaySize = { width: video.clientWidth, height: video.clientHeight };
                 faceapi.matchDimensions(canvas, displaySize);
 
-                let isLoopRunning = false;
-                setInterval(async () => {
-                    if (isProcessing || isLoopRunning) return;
-                    isLoopRunning = true;
+                function calculateEAR(eye) {
+                    const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+                    const d2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+                    const d3 = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+                    return (d1 + d2) / (2.0 * d3);
+                }
+
+                async function processFrame() {
+                    if (isProcessing) return;
 
                     try {
                         const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                        
+
                         canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
                         if (detection && !isProcessing) {
+                            const score = detection.detection.score;
+                            const boxW = detection.detection.box.width;
+                            
                             const resizedDetections = faceapi.resizeResults(detection, displaySize);
                             faceapi.draw.drawDetections(canvas, resizedDetections);
+
+                            // Anti-spoofing Quality Checks
+                            if (score < 0.85 || boxW < 140) {
+                                statusMessage.textContent = score < 0.85 ? "Face not clear. Avoid photos or glare." : "Face too small. Move closer.";
+                                statusMessage.className = "status-message show status-error";
+                                faceHoldStartTime = 0;
+                                progressOverlay.style.width = '0%';
+                                
+                                isProcessing = true;
+                                setTimeout(() => {
+                                    isProcessing = false;
+                                    processFrame();
+                                }, 3000);
+                                return;
+                            }
+
+                            faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+
+                            const landmarks = detection.landmarks;
+
+                            // Anti-Spoofing: Detect Corrupted Landmarks (Phone Screen Glare / Moiré Patterns)
+                            const leftEye = landmarks.getLeftEye();
+                            const rightEye = landmarks.getRightEye();
+                            const mouth = landmarks.getMouth();
                             
+                            const isLeftEyeInverted = leftEye[1].y > leftEye[5].y || leftEye[2].y > leftEye[4].y;
+                            const isRightEyeInverted = rightEye[1].y > rightEye[5].y || rightEye[2].y > rightEye[4].y;
+                            const isMouthInverted = mouth[3].y > mouth[9].y;
+                            const isAsymmetric = Math.abs(calculateEAR(leftEye) - calculateEAR(rightEye)) > 0.15;
+
+                            if (isLeftEyeInverted || isRightEyeInverted || isMouthInverted || isAsymmetric) {
+                                statusMessage.textContent = "Screen/Glare detected! Please use a real live face.";
+                                statusMessage.className = "status-message show status-error";
+                                faceHoldStartTime = 0;
+                                progressOverlay.style.width = '0%';
+
+                                isProcessing = true;
+                                setTimeout(() => {
+                                    isProcessing = false;
+                                    processFrame();
+                                }, 3000);
+                                return;
+                            }
+
+                            // Normal 2-Second Hold Logic
+                            statusMessage.textContent = "Hold still... looking directly at camera.";
+                            statusMessage.className = "status-message show";
+
                             if (faceHoldStartTime === 0) {
                                 faceHoldStartTime = Date.now();
                             } else {
-                                const heldTime = Date.now() - faceHoldStartTime;
-                                const percentage = Math.min((heldTime / HOLD_TIME_REQUIRED) * 100, 100);
-                                progressOverlay.style.width = percentage + '%';
+                                const elapsed = Date.now() - faceHoldStartTime;
+                                const progress = Math.min((elapsed / HOLD_TIME_REQUIRED) * 100, 100);
+                                progressOverlay.style.width = progress + '%';
 
-                                if (heldTime >= HOLD_TIME_REQUIRED) {
+                                if (elapsed >= HOLD_TIME_REQUIRED) {
+                                    statusMessage.textContent = "Recognizing... Please wait.";
+                                    statusMessage.className = "status-message show status-success";
                                     isProcessing = true;
                                     submitAttendance(detection.descriptor);
+                                    return;
                                 }
                             }
+
                         } else if (!detection) {
+                            statusMessage.textContent = "Face lost. Please look at the camera.";
+                            statusMessage.className = "status-message show status-error";
                             faceHoldStartTime = 0;
                             progressOverlay.style.width = '0%';
                         }
                     } catch (err) {
                         console.error("Detection error:", err);
-                    } finally {
-                        isLoopRunning = false;
                     }
-                }, 100);
+
+                    if (!isProcessing) {
+                        setTimeout(processFrame, 20);
+                    }
+                }
+                processFrame();
             };
 
         } catch (err) {
@@ -142,8 +208,8 @@
             });
 
             const data = await response.json();
-            
-            if(data.success) {
+
+            if (data.success) {
                 showStatus(data.message, true);
                 // Keep showing success, freeze process
             } else {
@@ -155,7 +221,7 @@
                     progressOverlay.style.width = '0%';
                 }, 3000);
             }
-        } catch(err) {
+        } catch (err) {
             showStatus(`Error: ${err.message}`);
             setTimeout(() => {
                 isProcessing = false;

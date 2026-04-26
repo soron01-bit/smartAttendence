@@ -60,8 +60,8 @@
     let livenessState = 0;
     let hasBlinked = false;
     let hasTurnedHead = false;
-    let maxEAR = 0;
     let blinkFrames = 0;
+    let earHistory = [];
 
     function showStatus(message, isSuccess = false) {
         statusMessage.textContent = message;
@@ -159,11 +159,52 @@
                     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
                     if (detection) {
+                        const score = detection.detection.score;
+                        const boxW = detection.detection.box.width;
+                        
                         const resizedDetections = faceapi.resizeResults(detection, displaySize);
                         faceapi.draw.drawDetections(canvas, resizedDetections);
+
+                        // Anti-spoofing Quality Checks
+                        if (score < 0.85 || boxW < 140) {
+                            livenessPrompt.textContent = score < 0.85 ? "Face not clear. Avoid photos or glare." : "Face too small. Move closer.";
+                            livenessPrompt.style.borderColor = "red";
+                            livenessState = 0;
+                            hasBlinked = false;
+                            hasTurnedHead = false;
+                            blinkFrames = 0;
+                            earHistory = [];
+                            scanBtn.disabled = true;
+                            setTimeout(processFrame, 20);
+                            return;
+                        }
+
                         faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
 
                         const landmarks = detection.landmarks;
+
+                        // Anti-Spoofing: Detect Corrupted Landmarks (Phone Screen Glare / Moiré Patterns)
+                        const leftEye = landmarks.getLeftEye();
+                        const rightEye = landmarks.getRightEye();
+                        const mouth = landmarks.getMouth();
+                        
+                        const isLeftEyeInverted = leftEye[1].y > leftEye[5].y || leftEye[2].y > leftEye[4].y;
+                        const isRightEyeInverted = rightEye[1].y > rightEye[5].y || rightEye[2].y > rightEye[4].y;
+                        const isMouthInverted = mouth[3].y > mouth[9].y;
+                        const isAsymmetric = Math.abs(calculateEAR(leftEye) - calculateEAR(rightEye)) > 0.15;
+
+                        if (isLeftEyeInverted || isRightEyeInverted || isMouthInverted || isAsymmetric) {
+                            livenessPrompt.textContent = "Screen/Glare detected! Please use a real live face.";
+                            livenessPrompt.style.borderColor = "red";
+                            livenessState = 0;
+                            hasBlinked = false;
+                            hasTurnedHead = false;
+                            blinkFrames = 0;
+                            earHistory = [];
+                            scanBtn.disabled = true;
+                            setTimeout(processFrame, 20);
+                            return;
+                        }
 
                         // Liveliness Logic
                         if (livenessState === 0) {
@@ -171,22 +212,28 @@
                             livenessPrompt.style.borderColor = "yellow";
                             livenessState = 1; // indicates tracking started
                             currentDescriptor = detection.descriptor; // Capture straight face descriptor
-                            maxEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
                             blinkFrames = 0;
+                            earHistory = [];
                         }
                         else if (livenessState === 1) {
-                            const avgEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
-                            
-                            // Instantly adapt max resting state to calibrate to face distance/shape
-                            if (avgEAR > maxEAR && avgEAR < 0.45) {
-                                maxEAR = avgEAR;
-                            }
+                            const currentEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
+                            earHistory.push(currentEAR);
+                            if (earHistory.length > 30) earHistory.shift(); // Keep 30 frames to remember open eyes
 
-                            // Check Blink (More robust)
-                            if (!hasBlinked) {
-                                if (avgEAR < 0.25 || avgEAR < maxEAR * 0.75) {
+                            const recentMaxEAR = earHistory.length > 0 ? Math.max(...earHistory) : currentEAR;
+
+                            const noseTip = landmarks.getNose()[3];
+                            const jaw = landmarks.getJawOutline();
+                            const distLeft = Math.abs(noseTip.x - jaw[0].x);
+                            const distRight = Math.abs(jaw[16].x - noseTip.x);
+                            const headRatio = Math.max(distLeft / distRight, distRight / distLeft);
+                            const isLookingStraight = headRatio < 1.5;
+
+                            // NEW Blink Logic: Detect a definitive drop compared to recent history
+                            if (!hasBlinked && earHistory.length >= 3) {
+                                if (isLookingStraight && currentEAR < (recentMaxEAR * 0.82)) {
                                     blinkFrames++;
-                                    if (blinkFrames >= 2) {
+                                    if (blinkFrames >= 1) {
                                         hasBlinked = true;
                                     }
                                 } else {
@@ -194,13 +241,11 @@
                                 }
                             }
 
-                            // Check Head Turn (More rigorous)
+                            // Check Head Turn
                             if (!hasTurnedHead) {
-                                const noseTip = landmarks.getNose()[3];
-                                const jaw = landmarks.getJawOutline();
-                                const distLeft = noseTip.x - jaw[0].x;
-                                const distRight = jaw[16].x - noseTip.x;
-                                if (distLeft / distRight > 2.2 || distRight / distLeft > 2.2) hasTurnedHead = true;
+                                if (headRatio > 2.8) {
+                                    hasTurnedHead = true;
+                                }
                             }
 
                             // Dynamic prompt updates
@@ -228,8 +273,8 @@
                         livenessState = 0;
                         hasBlinked = false;
                         hasTurnedHead = false;
-                        maxEAR = 0;
                         blinkFrames = 0;
+                        earHistory = [];
                         scanBtn.disabled = true;
                     }
 
@@ -317,7 +362,6 @@
             scanBtn.innerHTML = 'Complete Registration';
         }
     });
-
     document.addEventListener('DOMContentLoaded', init);
 </script>
 {% endblock %}
