@@ -25,7 +25,11 @@ SECRET_KEY = 'django-insecure-^5h#8x-*f*8)uuq0@8enqzn%ez5@f+o9i5puubq345w+u%y#@w
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'smartattendence-9wdm.onrender.com',
+    'localhost',
+    '127.0.0.1'
+]
 
 
 # Application definition
