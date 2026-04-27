@@ -1,0 +1,17 @@
+{
+  "name": "Smart Face Attendance",
+  "short_name": "Attendance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "description": "A smart face recognition attendance system.",
+  "icons": [
+    {
+      "src": "/static/applogo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
