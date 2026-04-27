@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smart-attendance-v4';
+const CACHE_NAME = 'smart-attendance-v5';
 const urlsToCache = [
   '/',
   '/static/css/style.css',
