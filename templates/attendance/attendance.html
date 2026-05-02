@@ -52,7 +52,8 @@
                 (err) => {
                     showStatus('Location access denied. Cannot mark attendance.', false);
                     console.error(err);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
 
             // Load models

@@ -163,7 +163,7 @@
                 document.getElementById('lon').value = position.coords.longitude;
             }, (error) => {
                 alert('Error getting location: ' + error.message);
-            });
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         } else {
             alert('Geolocation is not supported by this browser.');
         }
