@@ -41,20 +41,38 @@
         statusMessage.className = `status-message show ${isSuccess ? 'status-success' : 'status-error'}`;
     }
 
+    let locationError = null;
+
+    function startLocationWatch() {
+        if (!navigator.geolocation) {
+            locationError = "Geolocation is not supported by this browser.";
+            return;
+        }
+
+        navigator.geolocation.watchPosition(
+            (pos) => {
+                currentLat = pos.coords.latitude;
+                currentLon = pos.coords.longitude;
+                locationError = null; // Clear error on success
+            },
+            (err) => {
+                console.error("GPS Error:", err);
+                if (err.code === 1) {
+                    locationError = "Location access denied. Please enable location permissions.";
+                } else if (err.code === 2) {
+                    locationError = "Location unavailable. Please check your device GPS.";
+                } else if (err.code === 3) {
+                    locationError = "GPS timeout. Still trying to acquire signal...";
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+
     async function init() {
         try {
-            // Get Location first
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    currentLat = pos.coords.latitude;
-                    currentLon = pos.coords.longitude;
-                },
-                (err) => {
-                    showStatus('Location access denied. Cannot mark attendance.', false);
-                    console.error(err);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
+            // Start watching location continuously
+            startLocationWatch();
 
             // Load models
             await Promise.all([
@@ -138,6 +156,21 @@
                                     isProcessing = false;
                                     processFrame();
                                 }, 3000);
+                                return;
+                            }
+
+                            // Check location before allowing face hold
+                            if (!currentLat || !currentLon) {
+                                statusMessage.textContent = locationError || "Acquiring GPS signal... Please wait.";
+                                statusMessage.className = "status-message show status-error";
+                                faceHoldStartTime = 0;
+                                progressOverlay.style.width = '0%';
+                                
+                                isProcessing = true;
+                                setTimeout(() => {
+                                    isProcessing = false;
+                                    processFrame();
+                                }, 1000);
                                 return;
                             }
 
