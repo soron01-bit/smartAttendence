@@ -65,7 +65,7 @@
                     locationError = "GPS timeout. Still trying to acquire signal...";
                 }
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
         );
     }
 
@@ -112,7 +112,7 @@
                         if (detection && !isProcessing) {
                             const score = detection.detection.score;
                             const boxW = detection.detection.box.width;
-                            
+
                             const resizedDetections = faceapi.resizeResults(detection, displaySize);
                             faceapi.draw.drawDetections(canvas, resizedDetections);
 
@@ -122,7 +122,7 @@
                                 statusMessage.className = "status-message show status-error";
                                 faceHoldStartTime = 0;
                                 progressOverlay.style.width = '0%';
-                                
+
                                 isProcessing = true;
                                 setTimeout(() => {
                                     isProcessing = false;
@@ -139,7 +139,7 @@
                             const leftEye = landmarks.getLeftEye();
                             const rightEye = landmarks.getRightEye();
                             const mouth = landmarks.getMouth();
-                            
+
                             const isLeftEyeInverted = leftEye[1].y > leftEye[5].y || leftEye[2].y > leftEye[4].y;
                             const isRightEyeInverted = rightEye[1].y > rightEye[5].y || rightEye[2].y > rightEye[4].y;
                             const isMouthInverted = mouth[3].y > mouth[9].y;
@@ -165,7 +165,7 @@
                                 statusMessage.className = "status-message show status-error";
                                 faceHoldStartTime = 0;
                                 progressOverlay.style.width = '0%';
-                                
+
                                 isProcessing = true;
                                 setTimeout(() => {
                                     isProcessing = false;
