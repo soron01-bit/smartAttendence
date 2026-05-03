@@ -1,11 +1,14 @@
 :root {
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --bg-dark: #090e17;
-    --card-bg: rgba(30, 41, 59, 0.6);
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --bg-dark: #f8fafc; /* Re-used for light background */
+    --bg-color: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.9);
+    --text-main: #1e293b;
+    --text-muted: #64748b;
     --accent: #10b981;
+    --border: rgba(0, 0, 0, 0.1);
+    --surface: #e2e8f0;
 }
 
 * {
@@ -18,10 +21,11 @@ body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-main);
-    min-height: 100vh;
+    height: 100vh; /* Viewport-based layout */
+    margin: 0;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    overflow: hidden; /* No vertical scroll on body */
     position: relative;
     /* Subtle modern mesh gradient pattern */
     background-image: 
@@ -35,10 +39,10 @@ header {
     justify-content: space-between;
     align-items: center;
     padding: 1.2rem 5%;
-    background: rgba(9, 14, 23, 0.7);
+    background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -53,7 +57,7 @@ header {
 }
 
 .logo svg {
-    color: #ffffff;
+    color: var(--text-main);
 }
 
 .logo span {
@@ -88,18 +92,56 @@ nav a:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow-y: auto; /* Enable internal scrolling */
+    overflow-x: hidden;
+}
+
+/* Dashboard Layout */
+.dashboard-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden; /* No scrolling on the main container itself */
+    width: 100%;
+}
+
+.sidebar {
+    width: 300px;
+    background: var(--bg-color);
+    border-right: 1px solid var(--border);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.sidebar h3 {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
+
+.dashboard-content {
+    flex: 1;
+    padding: 2.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
 }
 
 .card {
     background: var(--card-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
     border-radius: 24px;
     padding: 2.5rem;
     width: 100%;
     max-width: 600px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
     animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -130,18 +172,17 @@ p.subtitle {
 .input-group label {
     display: block;
     margin-bottom: 0.5rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-muted);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
 }
 
 .input-group input, .input-group select, .input-group textarea {
     width: 100%;
     padding: 1rem 1.2rem;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-color);
+    border: 1px solid var(--border);
     border-radius: 12px;
     color: var(--text-main);
     font-size: 1rem;
@@ -152,7 +193,7 @@ p.subtitle {
 .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
     outline: none;
     border-color: var(--primary);
-    background: rgba(15, 23, 42, 0.8);
+    background: var(--bg-color);
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
 }
 
@@ -404,5 +445,53 @@ canvas {
     .logo {
         font-size: 1.25rem;
         white-space: nowrap;
+    }
+}
+/* Registration Viewport Layout */
+.registration-card {
+    display: flex;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    width: 95%;
+    max-width: 1100px;
+    height: 80vh;
+    max-height: 700px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reg-split-left {
+    flex: 1.2;
+    padding: 2rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.reg-split-right {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+@media (max-width: 900px) {
+    .registration-card {
+        flex-direction: column;
+        height: auto;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .reg-split-left {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
     }
 }

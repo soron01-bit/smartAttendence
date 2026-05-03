@@ -36,6 +36,15 @@ class UserProfile(models.Model):
         ('teacher', 'Teacher'),
     )
 
+    YEAR_CHOICES = [
+        ('1st', '1st Year'),
+        ('2nd', '2nd Year'),
+        ('3rd', '3rd Year'),
+        ('4th', '4th Year')
+    ]
+    
+    SEMESTER_CHOICES = [(str(i), f'Semester {i}') for i in range(1, 9)]
+
     user_id = models.CharField(max_length=10, unique=True, default=generate_unique_id)
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
@@ -43,7 +52,10 @@ class UserProfile(models.Model):
     
     # Specific fields
     department = models.CharField(max_length=100, blank=True, null=True)     # For teachers
-    grade_class = models.CharField(max_length=50, blank=True, null=True)     # For students
+    year = models.CharField(max_length=10, choices=YEAR_CHOICES, blank=True, null=True) # For students
+    semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES, blank=True, null=True) # For students
+    section = models.CharField(max_length=50, blank=True, null=True)         # For students
+    student_group = models.CharField(max_length=50, blank=True, null=True)   # For students
     roll_number = models.CharField(max_length=50, blank=True, null=True)     # For students
     
     # Detailed Profile Fields

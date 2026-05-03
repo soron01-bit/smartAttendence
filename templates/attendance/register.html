@@ -1,49 +1,59 @@
 {% extends 'base.html' %}
 
+{% block main_class %}dashboard-main{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>Register New User</h1>
-    <p class="subtitle">Follow the on-screen instructions to prove liveness.</p>
+<div class="dashboard-content" style="align-items: center; justify-content: center; height: 100%; padding: 1rem;">
+    <div class="registration-card">
+        <!-- Left Section: Liveliness & Video -->
+        <div class="reg-split-left">
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.5rem; text-align: left;">Register New User</h1>
+            <p class="subtitle" style="text-align: left; margin-bottom: 1rem; font-size: 0.95rem;">Follow the on-screen instructions to prove liveness.</p>
 
-    <!-- UI Prompt for Liveliness -->
-    <div id="livenessPrompt"
-        style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 1rem; text-align: center; font-weight: bold; font-size: 1.2rem; border-radius: 10px; margin-bottom: 1rem;">
-        Step 1: Look directly at the camera
-    </div>
+            <div id="livenessPrompt"
+                style="background: rgba(99, 102, 241, 0.15); border: 1px solid var(--primary); padding: 0.8rem; text-align: center; font-weight: bold; font-size: 1rem; border-radius: 12px; margin-bottom: 1rem;">
+                Step 1: Look directly at the camera
+            </div>
 
-    <div class="video-container" id="videoContainer">
-        <video id="video" autoplay muted playsinline></video>
-        <div class="loading-text" id="loadingText">
-            <div class="spinner"></div>
-            Loading AI Models...
+            <div class="video-container" id="videoContainer" style="margin-bottom: 0; flex: 1;">
+                <video id="video" autoplay muted playsinline style="border-radius: 16px; object-fit: cover;"></video>
+                <div class="loading-text" id="loadingText">
+                    <div class="spinner"></div>
+                    Loading AI Models...
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Section: Form Fields -->
+        <div class="reg-split-right">
+            <div style="padding-right: 0.5rem;">
+                <div class="input-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" placeholder="E.g. John Doe">
+                </div>
+
+                <div class="input-group">
+                    <label for="instituteCode">Institute Unique Code</label>
+                    <input type="text" id="instituteCode" placeholder="E.g. INST-123456">
+                </div>
+
+                <div id="dynamicFields"></div>
+
+                <button class="btn" id="scanBtn" disabled style="margin-top: 1rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 4h5v5" />
+                        <path d="M9.5 4h-5v5" />
+                        <path d="M14.5 20h5v-5" />
+                        <path d="M9.5 20h-5v-5" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Complete Registration
+                </button>
+                <div id="statusMessage" class="status-message" style="margin-top: 1rem;"></div>
+            </div>
         </div>
     </div>
-
-    <div class="input-group">
-        <label for="name">Full Name</label>
-        <input type="text" id="name" placeholder="E.g. John Doe">
-    </div>
-
-    <div class="input-group">
-        <label for="instituteCode">Institute Unique Code</label>
-        <input type="text" id="instituteCode" placeholder="E.g. INST-123456">
-    </div>
-
-
-    <div id="dynamicFields"></div>
-
-    <button class="btn" id="scanBtn" disabled>
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14.5 4h5v5" />
-            <path d="M9.5 4h-5v5" />
-            <path d="M14.5 20h5v-5" />
-            <path d="M9.5 20h-5v-5" />
-            <circle cx="12" cy="12" r="3" />
-        </svg>
-        Complete Registration
-    </button>
-    <div id="statusMessage" class="status-message"></div>
 </div>
 {% endblock %}
 
@@ -78,8 +88,36 @@
     if (role === 'student') {
         dynamicFields.innerHTML = `
             <div class="input-group">
-                <label for="gradeClass">Class / Grade</label>
-                <input type="text" id="gradeClass" placeholder="E.g. Grade 10">
+                <label for="year">Year</label>
+                <select id="year" style="width: 100%; padding: 0.8rem; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-main); border-radius: 8px;">
+                    <option value="" disabled selected>Select Year</option>
+                    <option value="1st">1st Year</option>
+                    <option value="2nd">2nd Year</option>
+                    <option value="3rd">3rd Year</option>
+                    <option value="4th">4th Year</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="semester">Semester</label>
+                <select id="semester" style="width: 100%; padding: 0.8rem; background: var(--bg-color); border: 1px solid var(--border); color: var(--text-main); border-radius: 8px;">
+                    <option value="" disabled selected>Select Semester</option>
+                    <option value="1">Semester 1</option>
+                    <option value="2">Semester 2</option>
+                    <option value="3">Semester 3</option>
+                    <option value="4">Semester 4</option>
+                    <option value="5">Semester 5</option>
+                    <option value="6">Semester 6</option>
+                    <option value="7">Semester 7</option>
+                    <option value="8">Semester 8</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="section">Section</label>
+                <input type="text" id="section" placeholder="E.g. A, B, C">
+            </div>
+            <div class="input-group">
+                <label for="studentGroup">Group</label>
+                <input type="text" id="studentGroup" placeholder="E.g. G1, G2">
             </div>
             <div class="input-group">
                 <label for="rollNumber">Roll Number</label>
@@ -298,7 +336,10 @@
 
         let extraParams = {};
         if (role === 'student') {
-            extraParams.grade_class = document.getElementById('gradeClass').value.trim();
+            extraParams.year = document.getElementById('year').value;
+            extraParams.semester = document.getElementById('semester').value;
+            extraParams.section = document.getElementById('section').value.trim();
+            extraParams.student_group = document.getElementById('studentGroup').value.trim();
             extraParams.roll_number = document.getElementById('rollNumber').value.trim();
             extraParams.guardian_name = document.getElementById('guardianName').value.trim();
         } else if (role === 'teacher') {

@@ -11,7 +11,7 @@ import datetime
 from .models import UserProfile, Attendance, Institute
 
 # Dummy configurations (can be moved to settings.py)
-MAX_DISTANCE_METERS = 100 # Maximum distance in meters to allow attendance
+MAX_DISTANCE_METERS = 400 # Maximum distance in meters to allow attendance
 LATE_CUTOFF_TIME = datetime.time(9, 0, 0)
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -24,6 +24,9 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def index(request):
     return render(request, 'attendance/index.html')
+
+def institute_portal(request):
+    return render(request, 'attendance/institute_admin.html')
 
 def register(request):
     return render(request, 'attendance/register.html')
@@ -55,7 +58,10 @@ def api_register(request):
                 return JsonResponse({'success': False, 'message': 'Invalid institute code.'}, status=400)
 
             department = data.get('department', '')
-            grade_class = data.get('grade_class', '')
+            year = data.get('year', '')
+            semester = data.get('semester', '')
+            section = data.get('section', '')
+            student_group = data.get('student_group', '')
             roll_number = data.get('roll_number', '')
 
             # Find closest match to prevent duplicates
@@ -84,7 +90,10 @@ def api_register(request):
                 role=role,
                 institute=institute,
                 department=department,
-                grade_class=grade_class,
+                year=year,
+                semester=semester,
+                section=section,
+                student_group=student_group,
                 roll_number=roll_number,
                 phone_number=phone_number,
                 blood_group=blood_group,
@@ -267,14 +276,19 @@ def api_update_profile(request):
             data = json.loads(request.body)
             user = UserProfile.objects.get(user_id=user_id)
             
-            if 'name' in data: user.name = data['name']
-            if 'department' in data: user.department = data['department']
-            if 'grade_class' in data: user.grade_class = data['grade_class']
-            if 'roll_number' in data: user.roll_number = data['roll_number']
-            if 'phone_number' in data: user.phone_number = data['phone_number']
-            if 'blood_group' in data: user.blood_group = data['blood_group']
-            if 'guardian_name' in data: user.guardian_name = data['guardian_name']
-            if 'designation' in data: user.designation = data['designation']
+            if user.role == 'student':
+                # Students can only update their phone number
+                if 'phone_number' in data: user.phone_number = data['phone_number']
+            else:
+                # Others can update all fields
+                if 'name' in data: user.name = data['name']
+                if 'department' in data: user.department = data['department']
+                if 'grade_class' in data: user.grade_class = data['grade_class']
+                if 'roll_number' in data: user.roll_number = data['roll_number']
+                if 'phone_number' in data: user.phone_number = data['phone_number']
+                if 'blood_group' in data: user.blood_group = data['blood_group']
+                if 'guardian_name' in data: user.guardian_name = data['guardian_name']
+                if 'designation' in data: user.designation = data['designation']
             
             user.save()
             return JsonResponse({'success': True, 'message': 'Profile updated successfully'})
@@ -427,6 +441,38 @@ def api_institute_delete_user(request):
             user_to_delete = UserProfile.objects.get(user_id=user_id, institute=institute)
             user_to_delete.delete()
             return JsonResponse({'success': True, 'message': 'User deleted successfully.'})
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'User not found or does not belong to your institute.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_institute_edit_user(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            if not user_id:
+                return JsonResponse({'success': False, 'message': 'User ID required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            user_to_edit = UserProfile.objects.get(user_id=user_id, institute=institute)
+            
+            if user_to_edit.role == 'student':
+                if 'year' in data: user_to_edit.year = data['year']
+                if 'semester' in data: user_to_edit.semester = data['semester']
+                if 'section' in data: user_to_edit.section = data['section']
+                if 'student_group' in data: user_to_edit.student_group = data['student_group']
+            elif user_to_edit.role == 'teacher':
+                if 'department' in data: user_to_edit.department = data['department']
+                if 'designation' in data: user_to_edit.designation = data['designation']
+                
+            user_to_edit.save()
+            return JsonResponse({'success': True, 'message': 'User updated successfully.'})
         except UserProfile.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'User not found or does not belong to your institute.'}, status=404)
         except Exception as e:

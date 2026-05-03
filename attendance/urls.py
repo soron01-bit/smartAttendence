@@ -3,6 +3,8 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('admin/', views.institute_portal, name='institute_portal'),
+    path('admin/login/', views.institute_login_view),
     path('register/', views.register, name='register'),
     path('attendance/', views.attendance, name='attendance'),
     path('api/register/', views.api_register, name='api_register'),
@@ -21,6 +23,7 @@ urlpatterns = [
     path('api/institute/login/', views.api_institute_login, name='api_institute_login'),
     path('api/institute/update_details/', views.api_update_institute_details, name='api_update_institute_details'),
     path('api/institute/delete_user/', views.api_institute_delete_user, name='api_institute_delete_user'),
+    path('api/institute/edit_user/', views.api_institute_edit_user, name='api_institute_edit_user'),
     path('institute/attendance-logs/', views.institute_attendance_logs_view, name='institute_attendance_logs'),
     path('api/institute/delete_attendance/', views.api_institute_delete_attendance, name='api_institute_delete_attendance'),
     path('api/institute/delete/', views.api_institute_delete, name='api_institute_delete'),

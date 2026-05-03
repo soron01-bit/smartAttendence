@@ -28,11 +28,15 @@
 
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Welcome, {{ user.name }}</h1>
-    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{
-            user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
+    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{ user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
     {% if user.institute %}
-    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1.1rem;">Institute: <span
-            style="color: var(--primary); font-weight: bold;">{{ user.institute.name }}</span></p>
+    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1.1rem;">Institute: <span style="color: var(--primary); font-weight: bold;">{{ user.institute.name }}</span></p>
+    {% endif %}
+    {% if user.role == 'student' %}
+    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1rem; color: var(--text-muted);">
+        {{ user.get_year_display|default:"-" }} | {{ user.get_semester_display|default:"-" }}<br>
+        Section: {{ user.section|default:"-" }} | Group: {{ user.student_group|default:"-" }} | Roll: {{ user.roll_number|default:"-" }}
+    </p>
     {% endif %}
 </div>
 <div class="db-card" style="max-width: 1000px; margin: 0 auto 2rem auto; padding: 1.5rem; text-align: center;">
@@ -62,28 +66,18 @@
 </div>
 
 <div class="dashboard-grid">
-    <!-- Profile Edit Module -->
+    <!-- Profile Details Module -->
     <div class="db-card">
-        <h2 style="margin-bottom: 1.5rem;">Edit Profile Details</h2>
+        <h2 style="margin-bottom: 1.5rem;">Profile Details</h2>
 
         <div class="input-group">
             <label for="name">Full Name</label>
-            <input type="text" id="name" value="{{ user.name }}">
+            <input type="text" id="name" value="{{ user.name }}" {% if user.role == 'student' %}readonly style="background: var(--surface); cursor: not-allowed; opacity: 0.8;"{% endif %}>
         </div>
 
         {% if user.role == 'student' %}
-        <div class="input-group">
-            <label for="gradeClass">Class / Grade</label>
-            <input type="text" id="gradeClass" value="{{ user.grade_class|default_if_none:'' }}">
-        </div>
-        <div class="input-group">
-            <label for="rollNumber">Roll Number</label>
-            <input type="text" id="rollNumber" value="{{ user.roll_number|default_if_none:'' }}">
-        </div>
-        <div class="input-group">
-            <label for="guardianName">Guardian Name</label>
-            <input type="text" id="guardianName" value="{{ user.guardian_name|default_if_none:'' }}">
-        </div>
+        <!-- Student details are shown at the top, but we can show them here as read-only too if needed. 
+             Since they are already at the top, we just show contact/blood info -->
         {% elif user.role == 'teacher' %}
         <div class="input-group">
             <label for="department">Department</label>
@@ -101,7 +95,7 @@
         </div>
         <div class="input-group">
             <label for="bloodGroup">Blood Group</label>
-            <input type="text" id="bloodGroup" value="{{ user.blood_group|default_if_none:'' }}">
+            <input type="text" id="bloodGroup" value="{{ user.blood_group|default_if_none:'' }}" {% if user.role == 'student' %}readonly style="background: var(--surface); cursor: not-allowed; opacity: 0.8;"{% endif %}>
         </div>
 
         <button class="btn" id="updateBtn" style="margin-top: 1rem;">

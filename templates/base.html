@@ -29,6 +29,7 @@
         </div>
         <nav>
             <a href="/">Home</a>
+            <a href="/admin/">Admin</a>
             {% if request.session.user_id %}
                 <a href="/dashboard/" style="color: var(--accent); font-weight: bold;">Dashboard</a>
                 <a href="/attendance/">Mark Attendance</a>
@@ -40,7 +41,7 @@
         </nav>
     </header>
 
-    <main class="container">
+    <main class="{% block main_class %}container{% endblock %}">
         {% block content %}{% endblock %}
     </main>
 
