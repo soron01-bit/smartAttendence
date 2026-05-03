@@ -112,6 +112,10 @@
                 </select>
             </div>
             <div class="input-group">
+                <label for="department">Department/Stream</label>
+                <input type="text" id="department" placeholder="E.g. Computer Science">
+            </div>
+            <div class="input-group">
                 <label for="section">Section</label>
                 <input type="text" id="section" placeholder="E.g. A, B, C">
             </div>
@@ -338,6 +342,7 @@
         if (role === 'student') {
             extraParams.year = document.getElementById('year').value;
             extraParams.semester = document.getElementById('semester').value;
+            extraParams.department = document.getElementById('department').value.trim();
             extraParams.section = document.getElementById('section').value.trim();
             extraParams.student_group = document.getElementById('studentGroup').value.trim();
             extraParams.roll_number = document.getElementById('rollNumber').value.trim();

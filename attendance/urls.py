@@ -25,6 +25,11 @@ urlpatterns = [
     path('api/institute/delete_user/', views.api_institute_delete_user, name='api_institute_delete_user'),
     path('api/institute/edit_user/', views.api_institute_edit_user, name='api_institute_edit_user'),
     path('institute/attendance-logs/', views.institute_attendance_logs_view, name='institute_attendance_logs'),
+    path('institute/subjects/', views.institute_subjects_view, name='institute_subjects'),
+    path('institute/daily-schedule/', views.institute_daily_schedule_view, name='institute_daily_schedule'),
     path('api/institute/delete_attendance/', views.api_institute_delete_attendance, name='api_institute_delete_attendance'),
     path('api/institute/delete/', views.api_institute_delete, name='api_institute_delete'),
+    path('api/institute/add_subject/', views.api_institute_add_subject, name='api_institute_add_subject'),
+    path('api/institute/delete_subject/', views.api_institute_delete_subject, name='api_institute_delete_subject'),
+    path('api/institute/toggle_permission/', views.api_institute_toggle_permission, name='api_institute_toggle_permission'),
 ]

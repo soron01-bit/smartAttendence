@@ -80,8 +80,30 @@ class Attendance(models.Model):
         ('Late', 'Late'),
     )
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='attendances')
+    subject = models.ForeignKey('Subject', on_delete=models.SET_NULL, null=True, blank=True, related_name='attendances')
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Present')
 
     def __str__(self):
         return f"{self.user.name} at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')} ({self.status})"
+
+class Subject(models.Model):
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='subjects')
+    semester = models.CharField(max_length=10, choices=UserProfile.SEMESTER_CHOICES)
+    name = models.CharField(max_length=200)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.name} - Sem {self.semester} ({self.institute.name})"
+
+class SubjectPermission(models.Model):
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='permissions')
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('subject', 'date')
+
+    def __str__(self):
+        return f"Permission for {self.subject.name} on {self.date}"

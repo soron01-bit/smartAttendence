@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 import datetime
-from .models import UserProfile, Attendance, Institute
+from .models import UserProfile, Attendance, Institute, Subject, SubjectPermission
 
 # Dummy configurations (can be moved to settings.py)
 MAX_DISTANCE_METERS = 400 # Maximum distance in meters to allow attendance
@@ -147,6 +147,10 @@ def api_match(request):
             # 0.55 is a balanced threshold for smooth recognition.
             threshold = 0.55
 
+            # Threshold for Euclidean distance with face-api.js SSD is usually ~0.6 with un-normalized descriptors. 
+            # 0.55 is a balanced threshold for smooth recognition.
+            threshold = 0.55
+
             if best_match and min_dist < threshold:
                 if not best_match.institute:
                     return JsonResponse({'success': False, 'message': 'User is not linked to any institute.'}, status=400)
@@ -155,31 +159,62 @@ def api_match(request):
                 if dist_to_school > MAX_DISTANCE_METERS:
                     return JsonResponse({'success': False, 'message': f'You are too far from your institute. ({int(dist_to_school)}m away)'}, status=400)
 
-                # Check for double attendance safely using exact bounds (fixing SQLite __date bugs)
+                # --- SUBJECT-WISE ATTENDANCE LOGIC ---
                 now = timezone.localtime()
+                current_time = now.time()
+                today = now.date()
+                
+                # Find active subjects for this student's institute and semester that have permission for today
+                active_subject = None
+                permitted_subjects = SubjectPermission.objects.filter(
+                    date=today,
+                    subject__institute=best_match.institute,
+                    subject__semester=best_match.semester
+                ).select_related('subject')
+                
+                for perm in permitted_subjects:
+                    s = perm.subject
+                    if s.start_time and s.end_time:
+                        if s.start_time <= current_time <= s.end_time:
+                            active_subject = s
+                            break
+                
+                if not active_subject:
+                    return JsonResponse({'success': False, 'message': 'No permitted subject is currently in session for your semester.'}, status=400)
+
+                # Check if attendance already marked for THIS subject today
                 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 today_end = today_start + datetime.timedelta(days=1)
                 
-                if Attendance.objects.filter(user=best_match, timestamp__gte=today_start, timestamp__lt=today_end).exists():
-                    return JsonResponse({'success': False, 'message': 'Attendance already marked for today.'}, status=400)
+                if Attendance.objects.filter(user=best_match, subject=active_subject, timestamp__gte=today_start, timestamp__lt=today_end).exists():
+                    return JsonResponse({'success': False, 'message': f'Attendance already marked for {active_subject.name} today.'}, status=400)
                 
-                # Check late entry
-                current_time = timezone.localtime().time()
-                status = 'Late' if current_time > LATE_CUTOFF_TIME else 'Present'
+                # Check late entry (using subject's start time + 10 mins buffer or just the fixed cutoff?)
+                # Let's use a 10-minute buffer after subject start time for 'Present', otherwise 'Late'
+                # Or keep the global LATE_CUTOFF_TIME? The user didn't specify. 
+                # Let's make it relative to subject start time if available.
+                status = 'Present'
+                if active_subject.start_time:
+                    # Convert subject start time to a datetime for comparison
+                    subject_start_dt = now.replace(hour=active_subject.start_time.hour, minute=active_subject.start_time.minute, second=0, microsecond=0)
+                    late_threshold = subject_start_dt + datetime.timedelta(minutes=10)
+                    if now > late_threshold:
+                        status = 'Late'
                 
                 # Mark attendance
-                record = Attendance.objects.create(user=best_match, status=status)
+                record = Attendance.objects.create(user=best_match, subject=active_subject, status=status)
                 
                 return JsonResponse({
                     'success': True,
-                    'message': f'Attendance marked: {status} for {best_match.name}',
+                    'message': f'Attendance marked: {status} for {active_subject.name}',
                     'user': {
                         'name': best_match.name,
                         'user_id': best_match.user_id,
                         'role': best_match.role,
-                        'status': status
+                        'status': status,
+                        'subject': active_subject.name
                     },
-                    'timestamp': record.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    'timestamp': record.timestamp.strftime('%H:%M:%S'),
                     'distance': min_dist
                 })
             else:
@@ -209,30 +244,29 @@ def dashboard_view(request):
     try:
         user = UserProfile.objects.get(user_id=user_id)
         
-        # Calculate attendance statistics safely avoiding SQLite date bugs
-        # Get all attendance timestamps for the user's institute
-        if user.institute:
-            institute_attendances = Attendance.objects.filter(user__institute=user.institute).values_list('timestamp', flat=True)
-        else:
-            institute_attendances = Attendance.objects.all().values_list('timestamp', flat=True)
-            
-        # Extract unique dates in Python
-        total_class_days = len(set(timezone.localtime(dt).date() for dt in institute_attendances if dt))
+        # Calculate attendance statistics based on subject sessions
+        # Total sessions the student WAS EXPECTED to attend (subjects in their semester that were permitted)
+        expected_sessions_count = SubjectPermission.objects.filter(
+            subject__semester=user.semester,
+            subject__institute=user.institute
+        ).count()
         
-        # Total days this user was present (unique dates)
-        user_attendances = Attendance.objects.filter(user=user).values_list('timestamp', flat=True)
-        total_attended = len(set(timezone.localtime(dt).date() for dt in user_attendances if dt))
+        # Total sessions the student ACTUALLY attended
+        attended_sessions_count = Attendance.objects.filter(
+            user=user,
+            subject__isnull=False
+        ).count()
         
         attendance_percentage = 0
-        if total_class_days > 0:
-            attendance_percentage = int((total_attended / total_class_days) * 100)
+        if expected_sessions_count > 0:
+            attendance_percentage = int((attended_sessions_count / expected_sessions_count) * 100)
             if attendance_percentage > 100:
                 attendance_percentage = 100
 
         context = {
             'user': user,
-            'total_class_days': total_class_days,
-            'total_attended': total_attended,
+            'total_class_days': expected_sessions_count, # Renaming label in UI might be good but let's keep it for now
+            'total_attended': attended_sessions_count,
             'attendance_percentage': attendance_percentage
         }
         return render(request, 'attendance/dashboard.html', context)
@@ -465,6 +499,7 @@ def api_institute_edit_user(request):
             if user_to_edit.role == 'student':
                 if 'year' in data: user_to_edit.year = data['year']
                 if 'semester' in data: user_to_edit.semester = data['semester']
+                if 'department' in data: user_to_edit.department = data['department']
                 if 'section' in data: user_to_edit.section = data['section']
                 if 'student_group' in data: user_to_edit.student_group = data['student_group']
             elif user_to_edit.role == 'teacher':
@@ -553,6 +588,143 @@ def api_institute_delete(request):
                 return JsonResponse({'success': False, 'message': 'Incorrect password.'}, status=401)
         except Institute.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'Institute not found.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+def institute_subjects_view(request):
+    institute_id = request.session.get('institute_id')
+    if not institute_id:
+        return redirect('institute_login')
+    
+    try:
+        institute = Institute.objects.get(id=institute_id)
+        # Group subjects by semester
+        subjects = institute.subjects.all().order_by('semester', 'name')
+        
+        # Get semester choices from UserProfile
+        semester_choices = UserProfile.SEMESTER_CHOICES
+        
+        return render(request, 'attendance/institute_subjects.html', {
+            'institute': institute,
+            'subjects': subjects,
+            'semester_choices': semester_choices
+        })
+    except Institute.DoesNotExist:
+        request.session.flush()
+        return redirect('institute_login')
+
+@csrf_exempt
+def api_institute_add_subject(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            semester = data.get('semester')
+            name = data.get('name')
+            start_time = data.get('start_time')
+            end_time = data.get('end_time')
+            
+            if not semester or not name or not start_time or not end_time:
+                return JsonResponse({'success': False, 'message': 'Semester, Subject Name, Start Time, and End Time are required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            subject = Subject.objects.create(
+                institute=institute,
+                semester=semester,
+                name=name,
+                start_time=start_time,
+                end_time=end_time
+            )
+            return JsonResponse({
+                'success': True, 
+                'message': 'Subject added successfully!',
+                'subject': {
+                    'id': subject.id,
+                    'name': subject.name,
+                    'semester': subject.semester,
+                    'start_time': str(subject.start_time),
+                    'end_time': str(subject.end_time)
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+def institute_daily_schedule_view(request):
+    institute_id = request.session.get('institute_id')
+    if not institute_id:
+        return redirect('institute_login')
+    
+    try:
+        institute = Institute.objects.get(id=institute_id)
+        today = timezone.localtime().date()
+        
+        subjects = institute.subjects.all().order_by('semester', 'start_time')
+        # Get which subjects have permission for today
+        permitted_ids = SubjectPermission.objects.filter(date=today, subject__institute=institute).values_list('subject_id', flat=True)
+        
+        return render(request, 'attendance/institute_daily_schedule.html', {
+            'institute': institute,
+            'subjects': subjects,
+            'permitted_ids': list(permitted_ids),
+            'today': today,
+            'semester_choices': UserProfile.SEMESTER_CHOICES
+        })
+    except Institute.DoesNotExist:
+        request.session.flush()
+        return redirect('institute_login')
+
+@csrf_exempt
+def api_institute_toggle_permission(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            subject_id = data.get('subject_id')
+            active = data.get('active') # Boolean
+            
+            if not subject_id:
+                return JsonResponse({'success': False, 'message': 'Subject ID required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            subject = Subject.objects.get(id=subject_id, institute=institute)
+            today = timezone.localtime().date()
+            
+            if active:
+                SubjectPermission.objects.get_or_create(subject=subject, date=today)
+                message = "Permission granted for today."
+            else:
+                SubjectPermission.objects.filter(subject=subject, date=today).delete()
+                message = "Permission revoked for today."
+                
+            return JsonResponse({'success': True, 'message': message})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_institute_delete_subject(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        try:
+            data = json.loads(request.body)
+            subject_id = data.get('subject_id')
+            if not subject_id:
+                return JsonResponse({'success': False, 'message': 'Subject ID required.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            subject = Subject.objects.get(id=subject_id, institute=institute)
+            subject.delete()
+            return JsonResponse({'success': True, 'message': 'Subject deleted successfully.'})
+        except Subject.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Subject not found.'}, status=404)
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)

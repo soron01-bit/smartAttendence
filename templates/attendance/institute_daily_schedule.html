@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block main_class %}dashboard-main{% endblock %}
+{% block content %}
+<style>
+    .logout-btn-modern {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white !important;
+        border: none;
+        border-radius: 8px;
+        padding: 0.8rem 1.5rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .logout-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    }
+
+    .schedule-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .subject-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+    }
+
+    .subject-card.permitted {
+        border-color: var(--accent);
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+        background: rgba(16, 185, 129, 0.02);
+    }
+
+    .subject-info h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+    }
+
+    .time-badge {
+        display: inline-block;
+        background: var(--surface);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .toggle-btn {
+        width: 100%;
+        padding: 0.75rem;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+
+    .toggle-btn.give {
+        background: var(--primary);
+        color: white;
+    }
+
+    .toggle-btn.revoke {
+        background: transparent;
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .toggle-btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-top: 1rem;
+    }
+    
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+</style>
+
+<aside class="sidebar">
+    <h1 style="text-align: left; font-size: 1.8rem; margin-bottom: 0.5rem;">Daily Schedule</h1>
+    <p class="subtitle" style="text-align: left; margin-bottom: 2rem;">Permissions for {{ today|date:"M d, Y" }}</p>
+
+    <h3>Navigation</h3>
+    <a href="{% url 'institute_dashboard' %}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem;">
+        Back to Dashboard
+    </a>
+    <a href="{% url 'institute_subjects' %}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem;">
+        Manage Subjects
+    </a>
+    <a href="{% url 'institute_logout' %}" class="logout-btn-modern" style="padding: 0.8rem; font-size: 1rem;">
+        Logout
+    </a>
+</aside>
+
+<div class="dashboard-content">
+    <div class="card" style="max-width: 100%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <h2 style="margin: 0;">Today's Subjects</h2>
+            <div style="text-align: right;">
+                <p style="margin: 0; font-weight: 600; color: var(--text-muted);">{{ today|date:"l" }}</p>
+            </div>
+        </div>
+
+        {% if subjects %}
+            {% for sem_val, sem_label in semester_choices %}
+                <div class="semester-section" id="section-{{ sem_val }}" style="margin-bottom: 3rem; display: none;">
+                    <h3 style="color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1.5rem;">
+                        {{ sem_label }}
+                    </h3>
+                    <div class="schedule-grid" id="grid-{{ sem_val }}">
+                        {% for subject in subjects %}
+                            {% if subject.semester == sem_val %}
+                            <script>document.getElementById('section-{{ sem_val }}').style.display = 'block';</script>
+                            <div class="subject-card {% if subject.id in permitted_ids %}permitted{% endif %}" id="card-{{ subject.id }}">
+                                <div class="subject-info">
+                                    <h3>{{ subject.name }}</h3>
+                                    <div class="time-badge">
+                                        {{ subject.start_time|time:"H:i" }} - {{ subject.end_time|time:"H:i" }}
+                                    </div>
+                                </div>
+
+                                <div class="action-area">
+                                    <button class="toggle-btn {% if subject.id in permitted_ids %}revoke{% else %}give{% endif %}" 
+                                            onclick="togglePermission('{{ subject.id }}', this)" 
+                                            data-active="{% if subject.id in permitted_ids %}true{% else %}false{% endif %}">
+                                        {% if subject.id in permitted_ids %}Revoke Permission{% else %}Give Permission{% endif %}
+                                    </button>
+                                    
+                                    <div class="status-indicator" id="status-{{ subject.id }}">
+                                        {% if subject.id in permitted_ids %}
+                                            <div class="dot" style="background: var(--accent);"></div>
+                                            <span style="color: var(--accent);">Permitted for today</span>
+                                        {% else %}
+                                            <div class="dot" style="background: var(--text-muted);"></div>
+                                            <span style="color: var(--text-muted);">No permission</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+        <div style="text-align: center; padding: 3rem;">
+            <p style="color: var(--text-muted);">No subjects found. Please <a href="{% url 'institute_subjects' %}">add subjects</a> first.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    async function togglePermission(subjectId, btn) {
+        const isActive = btn.getAttribute('data-active') === 'true';
+        const newActive = !isActive;
+        
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+
+        try {
+            const res = await fetch('/api/institute/toggle_permission/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject_id: subjectId, active: newActive })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Update UI
+                btn.setAttribute('data-active', newActive.toString());
+                const card = document.getElementById(`card-${subjectId}`);
+                const statusDiv = document.getElementById(`status-${subjectId}`);
+                
+                if (newActive) {
+                    card.classList.add('permitted');
+                    btn.className = 'toggle-btn revoke';
+                    btn.textContent = 'Revoke Permission';
+                    statusDiv.innerHTML = `
+                        <div class="dot" style="background: var(--accent);"></div>
+                        <span style="color: var(--accent);">Permitted for today</span>
+                    `;
+                } else {
+                    card.classList.remove('permitted');
+                    btn.className = 'toggle-btn give';
+                    btn.textContent = 'Give Permission';
+                    statusDiv.innerHTML = `
+                        <div class="dot" style="background: var(--text-muted);"></div>
+                        <span style="color: var(--text-muted);">No permission</span>
+                    `;
+                }
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert("An error occurred.");
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+</script>
+{% endblock %}

@@ -162,6 +162,7 @@
                     <tr>
                         <th>Date & Time</th>
                         <th>Name</th>
+                        <th>Subject</th>
                         <th>Role</th>
                         <th>User ID</th>
                         <th>Details</th>
@@ -174,6 +175,7 @@
                     <tr id="row-{{ record.id }}">
                         <td style="white-space: nowrap;">{{ record.timestamp|date:"M d, Y - h:i A" }}</td>
                         <td style="font-weight: bold; color: var(--text-color);">{{ record.user.name }}</td>
+                        <td style="font-weight: 600; color: var(--primary);">{{ record.subject.name|default:"General" }}</td>
                         <td><span style="color: var(--primary);">{{ record.user.get_role_display }}</span></td>
                         <td style="font-family: monospace; color: #a1a1aa;">{{ record.user.user_id }}</td>
                         <td style="font-size: 0.9rem; color: #a1a1aa;">

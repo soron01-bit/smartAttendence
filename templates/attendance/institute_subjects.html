@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block main_class %}dashboard-main{% endblock %}
+{% block content %}
+<style>
+    .logout-btn-modern {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white !important;
+        border: none;
+        border-radius: 8px;
+        padding: 0.8rem 1.5rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .logout-btn-modern:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    }
+
+    .semester-section {
+        margin-bottom: 2rem;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .semester-header {
+        background: rgba(99, 102, 241, 0.05);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .semester-header h3 {
+        margin: 0;
+        color: var(--primary);
+        font-size: 1.1rem;
+    }
+
+    .subject-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .subject-item {
+        padding: 0.8rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s ease;
+    }
+
+    .subject-item:last-child {
+        border-bottom: none;
+    }
+
+    .subject-item:hover {
+        background: rgba(99, 102, 241, 0.02);
+    }
+
+    .delete-subject-btn {
+        background: transparent;
+        color: #ef4444;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        opacity: 0.6;
+        transition: opacity 0.2s ease;
+    }
+
+    .delete-subject-btn:hover {
+        opacity: 1;
+    }
+
+    .empty-msg {
+        padding: 1.5rem;
+        color: var(--text-muted);
+        text-align: center;
+        font-style: italic;
+    }
+</style>
+
+<aside class="sidebar">
+    <h1 style="text-align: left; font-size: 1.8rem; margin-bottom: 0.5rem;">Subjects</h1>
+    <p class="subtitle" style="text-align: left; margin-bottom: 2rem;">Manage Semester Subjects</p>
+
+    <h3>Navigation</h3>
+    <a href="{% url 'institute_dashboard' %}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem;">
+        Back to Dashboard
+    </a>
+    <a href="{% url 'institute_attendance_logs' %}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem;">
+        View Attendance
+    </a>
+    <a href="{% url 'institute_logout' %}" class="logout-btn-modern" style="padding: 0.8rem; font-size: 1rem;">
+        Logout
+    </a>
+</aside>
+
+<div class="dashboard-content">
+    <div class="card" style="max-width: 100%;">
+        <h2 style="margin-bottom: 1.5rem;">Add New Subject</h2>
+        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr 1fr auto; gap: 1rem; align-items: end;">
+            <div class="input-group" style="margin-bottom: 0;">
+                <label for="semesterSelect">Semester</label>
+                <select id="semesterSelect">
+                    {% for val, label in semester_choices %}
+                        <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+                <label for="subjectName">Subject Name</label>
+                <input type="text" id="subjectName" placeholder="e.g. Data Structures">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+                <label for="startTime">Start Time</label>
+                <input type="time" id="startTime">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+                <label for="endTime">End Time</label>
+                <input type="time" id="endTime">
+            </div>
+            <button class="btn" id="addSubjectBtn" style="padding: 0.8rem 1.5rem;">Add Subject</button>
+        </div>
+        <div id="statusMessage" class="status-message"></div>
+    </div>
+
+    <div style="margin-top: 1rem;">
+        <h2 style="margin-bottom: 1.5rem;">Subject Lists by Semester</h2>
+        
+        <div id="subjectsContainer">
+            {% for sem_val, sem_label in semester_choices %}
+            <div class="semester-section" id="sem-section-{{ sem_val }}">
+                <div class="semester-header">
+                    <h3>{{ sem_label }}</h3>
+                    <span class="badge" style="background: var(--surface); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem;" id="count-{{ sem_val }}">
+                        {% with subjects_for_sem=subjects|dictsort:"semester" %}
+                            {% if subjects|dictsort:"semester" %}
+                                {# This is a bit tricky in Django templates without custom filters, so we'll just handle visibility via JS or simple loops #}
+                            {% endif %}
+                        {% endwith %}
+                    </span>
+                </div>
+                <ul class="subject-list" id="list-{{ sem_val }}">
+                    {% for subject in subjects %}
+                        {% if subject.semester == sem_val %}
+                            <li class="subject-item" id="subject-{{ subject.id }}">
+                                <div>
+                                    <span style="font-weight: 600;">{{ subject.name }}</span>
+                                    <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 1rem;">
+                                        {{ subject.start_time|time:"H:i" }} - {{ subject.end_time|time:"H:i" }}
+                                    </span>
+                                </div>
+                                <button class="delete-subject-btn" onclick="deleteSubject('{{ subject.id }}')">Delete</button>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="empty-msg" id="empty-{{ sem_val }}" style="display: none;">No subjects added yet.</li>
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Logic to show/hide empty messages and counts initially
+    document.addEventListener('DOMContentLoaded', () => {
+        {% for sem_val, sem_label in semester_choices %}
+            updateSemState('{{ sem_val }}');
+        {% endfor %}
+    });
+
+    function updateSemState(semVal) {
+        const list = document.getElementById(`list-${semVal}`);
+        const items = list.querySelectorAll('.subject-item');
+        const emptyMsg = document.getElementById(`empty-${semVal}`);
+        const countBadge = document.getElementById(`count-${semVal}`);
+        
+        if (items.length === 0) {
+            emptyMsg.style.display = 'block';
+            countBadge.textContent = '0';
+        } else {
+            emptyMsg.style.display = 'none';
+            countBadge.textContent = items.length;
+        }
+    }
+
+    document.getElementById('addSubjectBtn').addEventListener('click', async () => {
+        const semester = document.getElementById('semesterSelect').value;
+        const name = document.getElementById('subjectName').value.trim();
+        const start_time = document.getElementById('startTime').value;
+        const end_time = document.getElementById('endTime').value;
+        const statusMessage = document.getElementById('statusMessage');
+
+        if (!name || !start_time || !end_time) {
+            alert("Please fill in all fields (Name, Start Time, End Time).");
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/institute/add_subject/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ semester, name, start_time, end_time })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Add to list dynamically
+                const list = document.getElementById(`list-${semester}`);
+                const li = document.createElement('li');
+                li.className = 'subject-item';
+                li.id = `subject-${data.subject.id}`;
+                li.innerHTML = `
+                    <div>
+                        <span style="font-weight: 600;">${data.subject.name}</span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 1rem;">
+                            ${data.subject.start_time.substring(0,5)} - ${data.subject.end_time.substring(0,5)}
+                        </span>
+                    </div>
+                    <button class="delete-subject-btn" onclick="deleteSubject('${data.subject.id}')">Delete</button>
+                `;
+                list.appendChild(li);
+                
+                updateSemState(semester);
+                document.getElementById('subjectName').value = '';
+                
+                statusMessage.textContent = data.message;
+                statusMessage.className = 'status-message show status-success';
+                setTimeout(() => statusMessage.className = 'status-message', 3000);
+            } else {
+                statusMessage.textContent = data.message;
+                statusMessage.className = 'status-message show status-error';
+            }
+        } catch (err) {
+            alert("An error occurred.");
+        }
+    });
+
+    async function deleteSubject(subjectId) {
+        if (!confirm("Are you sure you want to delete this subject?")) return;
+
+        try {
+            const res = await fetch('/api/institute/delete_subject/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject_id: subjectId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                const item = document.getElementById(`subject-${subjectId}`);
+                const listId = item.parentElement.id;
+                const semVal = listId.replace('list-', '');
+                item.remove();
+                updateSemState(semVal);
+            } else {
+                alert(data.message);
+            }
+        } catch (err) {
+            alert("An error occurred.");
+        }
+    }
+</script>
+{% endblock %}
