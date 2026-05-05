@@ -27,6 +27,29 @@
         min-height: 100vh;
     }
 
+    .dashboard-header {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: flex-end;
+        gap: 1rem;
+    }
+
+    @media (max-width: 600px) {
+        .dashboard-container {
+            padding: 1rem;
+            gap: 1.5rem;
+        }
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+        .dashboard-header > div:last-child {
+            text-align: left !important;
+            width: 100%;
+        }
+    }
+
     .glass-card {
         background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(12px);
@@ -38,7 +61,7 @@
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1.5rem;
     }
 
@@ -106,6 +129,13 @@
         cursor: pointer;
         border-radius: 12px;
         font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    @media (max-width: 480px) {
+        .calendar-grid { gap: 0.25rem; }
+        .calendar-day { border-radius: 8px; font-size: 0.8rem; }
+        .stat-info h3 { font-size: 1.4rem; }
     }
 
     .calendar-day.selected { background: var(--primary); color: white; }
@@ -136,13 +166,13 @@
 
 <div class="dashboard-container">
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+    <div class="dashboard-header">
         <div>
             <h1 style="margin: 0; font-size: 2rem; font-weight: 900;">Dashboard</h1>
             <p style="margin: 0.2rem 0 0 0; color: var(--text-muted); font-weight: 600;">Welcome back, <span style="color: var(--primary);">{{ user.name }}</span></p>
         </div>
-        <div style="text-align: right;">
-            <span style="background: white; padding: 0.5rem 1.2rem; border-radius: 50px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div>
+            <span style="background: white; padding: 0.5rem 1.2rem; border-radius: 50px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: inline-block;">
                 {{ user.institute.name }}
             </span>
         </div>
@@ -212,6 +242,10 @@
             <!-- Profile Info Card -->
             <div class="glass-card">
                 <h3 style="margin: 0 0 1.2rem 0; font-weight: 800; font-size: 1.1rem;">Academic Profile</h3>
+                <div class="input-box">
+                    <label>Department / Stream</label>
+                    <input type="text" value="{{ user.department|default:'Not specified' }}" readonly>
+                </div>
                 <div class="input-box">
                     <label>Current Status</label>
                     <input type="text" value="{{ user.get_semester_display }} | Roll: {{ user.roll_number }}" readonly>

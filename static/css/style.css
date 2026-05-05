@@ -100,7 +100,7 @@ nav a:hover {
 .dashboard-main {
     flex: 1;
     display: flex;
-    overflow: hidden; /* No scrolling on the main container itself */
+    overflow: visible; /* Changed from hidden to allow natural page scrolling */
     width: 100%;
 }
 
@@ -445,6 +445,24 @@ canvas {
     .logo {
         font-size: 1.25rem;
         white-space: nowrap;
+    }
+
+    /* Dashboard Responsiveness */
+    .dashboard-main {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border);
+        padding: 1.5rem !important;
+        position: relative !important;
+        height: auto !important;
+    }
+
+    .dashboard-content {
+        padding: 1.5rem !important;
     }
 }
 /* Registration Viewport Layout */
