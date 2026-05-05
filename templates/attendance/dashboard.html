@@ -1,410 +1,342 @@
 {% extends 'base.html' %}
-
+{% block main_class %}dashboard-main{% endblock %}
 {% block content %}
 <style>
-    .dashboard-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+    :root {
+        --primary: #4f46e5;
+        --accent: #10b981;
+        --surface: #ffffff;
+        --bg-color: #f8fafc;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+    }
+
+    body {
+        background: var(--bg-color);
+        color: var(--text-main);
+        overflow-y: auto;
+    }
+
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
         gap: 2rem;
-        width: 100%;
-        max-width: 1000px;
+        min-height: 100vh;
     }
 
-    .db-card {
-        background: var(--card-bg);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 2.5rem;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        padding: 1.5rem;
     }
 
-    @media (max-width: 768px) {
-        .dashboard-grid {
-            grid-template-columns: 1fr;
-        }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
     }
+
+    .stat-card {
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+    }
+
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .stat-info h4 {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        margin: 0;
+    }
+
+    .stat-info h3 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin: 0;
+    }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 1.8fr 1fr;
+        gap: 2rem;
+        align-items: start;
+    }
+
+    .sticky-sidebar {
+        position: sticky;
+        top: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    @media (max-width: 992px) {
+        .content-grid { grid-template-columns: 1fr; }
+        .sticky-sidebar { position: static; }
+    }
+
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 12px;
+        font-weight: 600;
+    }
+
+    .calendar-day.selected { background: var(--primary); color: white; }
+    .calendar-day.today { border: 2px solid var(--primary); color: var(--primary); }
+
+    .subject-item {
+        background: white;
+        border-radius: 16px;
+        padding: 1rem;
+        margin-bottom: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 800;
+    }
+
+    .input-box { margin-bottom: 1rem; }
+    .input-box label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.4rem; }
+    .input-box input { width: 100%; padding: 0.8rem; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; font-weight: 600; }
 </style>
 
-<div style="text-align: center; margin-bottom: 2rem;">
-    <h1>Welcome, {{ user.name }}</h1>
-    <p class="subtitle" style="margin-bottom: 0;">Role: <span style="color: var(--accent); font-weight: bold;">{{ user.get_role_display }}</span> | ID: <span>{{ user.user_id }}</span></p>
-    {% if user.institute %}
-    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1.1rem;">Institute: <span style="color: var(--primary); font-weight: bold;">{{ user.institute.name }}</span></p>
-    {% endif %}
-    {% if user.role == 'student' %}
-    <p class="subtitle" style="margin-top: 0.5rem; font-size: 1rem; color: var(--text-muted);">
-        {{ user.get_year_display|default:"-" }} | {{ user.get_semester_display|default:"-" }}<br>
-        Section: {{ user.section|default:"-" }} | Group: {{ user.student_group|default:"-" }} | Roll: {{ user.roll_number|default:"-" }}
-    </p>
-    {% endif %}
-</div>
-<div class="db-card" style="max-width: 1000px; margin: 0 auto 2rem auto; padding: 1.5rem; text-align: center;">
-    <h2 style="margin-bottom: 1rem;">Attendance Analytics</h2>
-    <div style="display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;">
+<div class="dashboard-container">
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
         <div>
-            <p
-                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
-                Required Sessions</p>
-            <h3 style="font-size: 2.5rem; color: var(--text-color); margin: 0;">{{ total_class_days }}</h3>
+            <h1 style="margin: 0; font-size: 2rem; font-weight: 900;">Dashboard</h1>
+            <p style="margin: 0.2rem 0 0 0; color: var(--text-muted); font-weight: 600;">Welcome back, <span style="color: var(--primary);">{{ user.name }}</span></p>
         </div>
-        <div>
-            <p
-                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
-                Attended Sessions</p>
-            <h3 style="font-size: 2.5rem; color: var(--accent); margin: 0;">{{ total_attended }}</h3>
-        </div>
-        <div>
-            <p
-                style="font-size: 0.9rem; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: bold;">
-                Attendance %</p>
-            <h3
-                style="font-size: 2.5rem; color: {% if attendance_percentage >= 75 %}#10b981{% elif attendance_percentage >= 50 %}#fbbf24{% else %}#ef4444{% endif %}; margin: 0;">
-                {{ attendance_percentage }}%</h3>
+        <div style="text-align: right;">
+            <span style="background: white; padding: 0.5rem 1.2rem; border-radius: 50px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                {{ user.institute.name }}
+            </span>
         </div>
     </div>
-</div>
 
-<div class="dashboard-grid">
-    <!-- Profile Details Module -->
-    <div class="db-card">
-        <h2 style="margin-bottom: 1.5rem;">Profile Details</h2>
-
-        <div class="input-group">
-            <label for="name">Full Name</label>
-            <input type="text" id="name" value="{{ user.name }}" {% if user.role == 'student' %}readonly style="background: var(--surface); cursor: not-allowed; opacity: 0.8;"{% endif %}>
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="glass-card stat-card">
+            <div class="stat-icon" style="background: rgba(79, 70, 229, 0.1); color: var(--primary);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="stat-info">
+                <h4>Required</h4>
+                <h3>{{ total_class_days }}</h3>
+            </div>
         </div>
-
-        {% if user.role == 'student' %}
-        <!-- Student details are shown at the top, but we can show them here as read-only too if needed. 
-             Since they are already at the top, we just show contact/blood info -->
-        {% elif user.role == 'teacher' %}
-        <div class="input-group">
-            <label for="department">Department</label>
-            <input type="text" id="department" value="{{ user.department|default_if_none:'' }}">
+        <div class="glass-card stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="stat-info">
+                <h4>Attended</h4>
+                <h3>{{ total_attended }}</h3>
+            </div>
         </div>
-        <div class="input-group">
-            <label for="designation">Designation</label>
-            <input type="text" id="designation" value="{{ user.designation|default_if_none:'' }}">
+        <div class="glass-card stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="stat-info">
+                <h4>Attendance Rate</h4>
+                <h3 style="color: {% if attendance_percentage >= 75 %}var(--accent){% elif attendance_percentage >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+                    {{ attendance_percentage }}%
+                </h3>
+            </div>
         </div>
-        {% endif %}
-
-        <div class="input-group">
-            <label for="phoneNumber">Phone Number</label>
-            <input type="text" id="phoneNumber" value="{{ user.phone_number|default_if_none:'' }}">
-        </div>
-        <div class="input-group">
-            <label for="bloodGroup">Blood Group</label>
-            <input type="text" id="bloodGroup" value="{{ user.blood_group|default_if_none:'' }}" {% if user.role == 'student' %}readonly style="background: var(--surface); cursor: not-allowed; opacity: 0.8;"{% endif %}>
-        </div>
-
-        <button class="btn" id="updateBtn" style="margin-top: 1rem;">
-            Update Profile
-        </button>
-        <div id="updateStatus" class="status-message"></div>
     </div>
 
-    <!-- Face Rescan Module -->
-    <div class="db-card">
-        <h2 style="margin-bottom: 0.5rem;">Rescan Face Data</h2>
-        <p class="subtitle" style="font-size: 0.9rem; margin-bottom: 1.5rem;">Update your biometric profile using
-            Liveliness Check.</p>
+    <!-- Main Content -->
+    <div class="content-grid">
+        <!-- History Column -->
+        <div class="glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; font-weight: 800;">Attendance Logs</h3>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span id="calendarMonth" style="font-weight: 700; color: var(--text-muted); font-size: 0.9rem;">Month</span>
+                    <div style="display: flex; gap: 0.4rem;">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; border-radius: 10px; width: auto;" onclick="changeMonth(-1)">&larr;</button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.7rem; border-radius: 10px; width: auto;" onclick="changeMonth(1)">&rarr;</button>
+                    </div>
+                </div>
+            </div>
 
-        <div id="livenessPrompt"
-            style="background: rgba(99, 102, 241, 0.2); border: 1px solid var(--primary); padding: 0.75rem; text-align: center; font-weight: bold; border-radius: 10px; margin-bottom: 1rem; font-size: 0.9rem;">
-            Press "Start Camera" to begin
-        </div>
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- JS Populated -->
+            </div>
 
-        <div class="video-container" id="videoContainer" style="display: none;">
-            <video id="video" autoplay muted playsinline></video>
-            <div class="loading-text" id="loadingText">
-                <div class="spinner"></div>
-                Initializing...
+            <div id="historyDetails">
+                <div style="padding: 3rem; text-align: center; color: var(--text-muted); background: #f1f5f9; border-radius: 20px; border: 2px dashed #cbd5e1;">
+                    <p style="margin: 0; font-weight: 600;">Select a date to view session details</p>
+                </div>
             </div>
         </div>
 
-        <button class="btn btn-secondary" id="startCamBtn" style="margin-bottom: 1rem;">
-            Start Camera
-        </button>
+        <!-- Sidebar Column -->
+        <div class="sticky-sidebar">
+            <!-- Profile Info Card -->
+            <div class="glass-card">
+                <h3 style="margin: 0 0 1.2rem 0; font-weight: 800; font-size: 1.1rem;">Academic Profile</h3>
+                <div class="input-box">
+                    <label>Current Status</label>
+                    <input type="text" value="{{ user.get_semester_display }} | Roll: {{ user.roll_number }}" readonly>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="input-box">
+                        <label>Section</label>
+                        <input type="text" value="{{ user.section|default:'-' }}" readonly>
+                    </div>
+                    <div class="input-box">
+                        <label>Group</label>
+                        <input type="text" value="{{ user.student_group|default:'-' }}" readonly>
+                    </div>
+                </div>
+                <div class="input-box">
+                    <label>Contact</label>
+                    <input type="text" id="phoneNumber" value="{{ user.phone_number|default_if_none:'' }}" placeholder="Update phone number">
+                </div>
+                <button class="btn btn-secondary" style="width: 100%; border-radius: 12px; padding: 0.8rem;" id="updateBtn">Save Contact Changes</button>
+                <div id="updateStatus" style="text-align: center; font-size: 0.8rem; font-weight: 600; margin-top: 0.5rem;"></div>
+            </div>
 
-        <button class="btn" id="rescanBtn" disabled style="display: none;">
-            Save New Face Data
-        </button>
-        <div id="rescanStatus" class="status-message"></div>
+            <!-- My Subjects Card -->
+            <div class="glass-card" style="border: 2px solid rgba(79, 70, 229, 0.1);">
+                <h3 style="margin: 0 0 1.2rem 0; font-weight: 800; font-size: 1.1rem;">My Subjects</h3>
+                <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                    {% for subject in subjects %}
+                    <div style="background: rgba(79, 70, 229, 0.05); padding: 0.8rem; border-radius: 12px; border: 1px solid rgba(79, 70, 229, 0.1);">
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">{{ subject.name }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                            {{ subject.start_time|time:"H:i" }} - {{ subject.end_time|time:"H:i" }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">No subjects listed for this semester.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script>
-    // --- Update Profile Logic ---
-    const updateBtn = document.getElementById('updateBtn');
-    const updateStatus = document.getElementById('updateStatus');
+    let currentDate = new Date();
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarMonth = document.getElementById('calendarMonth');
 
-    updateBtn.addEventListener('click', async () => {
-        updateBtn.disabled = true;
-        updateBtn.innerText = 'Updating...';
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        calendarMonth.innerText = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentDate);
+        calendarGrid.innerHTML = '<div class="calendar-day-name">S</div><div class="calendar-day-name">M</div><div class="calendar-day-name">T</div><div class="calendar-day-name">W</div><div class="calendar-day-name">T</div><div class="calendar-day-name">F</div><div class="calendar-day-name">S</div>';
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        let payload = { name: document.getElementById('name').value.trim() };
-
-        if (document.getElementById('gradeClass')) {
-            payload.grade_class = document.getElementById('gradeClass').value.trim();
-        }
-        if (document.getElementById('rollNumber')) {
-            payload.roll_number = document.getElementById('rollNumber').value.trim();
-        }
-        if (document.getElementById('guardianName')) {
-            payload.guardian_name = document.getElementById('guardianName').value.trim();
-        }
-        if (document.getElementById('department')) {
-            payload.department = document.getElementById('department').value.trim();
-        }
-        if (document.getElementById('designation')) {
-            payload.designation = document.getElementById('designation').value.trim();
-        }
-        if (document.getElementById('phoneNumber')) {
-            payload.phone_number = document.getElementById('phoneNumber').value.trim();
-        }
-        if (document.getElementById('bloodGroup')) {
-            payload.blood_group = document.getElementById('bloodGroup').value.trim();
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'calendar-day';
+            calendarGrid.appendChild(empty);
         }
 
-        try {
-            const response = await fetch('/api/update_profile/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-
-            updateStatus.textContent = data.message;
-            updateStatus.className = `status-message show ${data.success ? 'status-success' : 'status-error'}`;
-        } catch (err) {
-            updateStatus.textContent = `Error: ${err.message}`;
-            updateStatus.className = 'status-message show status-error';
+        const today = new Date();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayEl = document.createElement('div');
+            dayEl.className = 'calendar-day';
+            dayEl.innerText = day;
+            if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) dayEl.classList.add('today');
+            dayEl.onclick = () => selectDate(year, month, day, dayEl);
+            calendarGrid.appendChild(dayEl);
         }
-
-        updateBtn.disabled = false;
-        updateBtn.innerText = 'Update Profile';
-        setTimeout(() => updateStatus.classList.remove('show'), 4000);
-    });
-
-
-    // --- Rescan Face (Liveliness Logic) ---
-    const startCamBtn = document.getElementById('startCamBtn');
-    const rescanBtn = document.getElementById('rescanBtn');
-    const videoContainer = document.getElementById('videoContainer');
-    const video = document.getElementById('video');
-    const litenessPrompt = document.getElementById('livenessPrompt');
-    const rescanStatus = document.getElementById('rescanStatus');
-    const loadingText = document.getElementById('loadingText');
-
-    let currentDescriptor = null;
-    let livenessState = -1; // -1 = off
-    let hasBlinked = false;
-    let hasTurnedHead = false;
-    let blinkFrames = 0;
-    let earHistory = [];
-
-    function calculateEAR(eye) {
-        const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-        const d2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-        const d3 = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-        return (d1 + d2) / (2.0 * d3);
     }
 
-    startCamBtn.addEventListener('click', async () => {
-        startCamBtn.style.display = 'none';
-        videoContainer.style.display = 'flex';
-        livenessPrompt.textContent = "Loading AI models...";
-        rescanBtn.style.display = 'inline-flex';
-        livenessState = 0; // Initialize state to start tracking
+    async function selectDate(year, month, day, element) {
+        document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+        element.classList.add('selected');
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const container = document.getElementById('historyDetails');
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading...</div>';
 
         try {
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri('/static/models'),
-                faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
-                faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
-            ]);
-
-            loadingText.style.display = 'none';
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            video.srcObject = stream;
-
-            video.onplay = () => {
-                const canvas = faceapi.createCanvasFromMedia(video);
-                videoContainer.append(canvas);
-                const displaySize = { width: video.clientWidth, height: video.clientHeight };
-                faceapi.matchDimensions(canvas, displaySize);
-
-                async function processFrame() {
-                    if (livenessState === 3 || livenessState === -1) return;
-
-                    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-
-                    if (detection) {
-                        const score = detection.detection.score;
-                        const boxW = detection.detection.box.width;
-                        
-                        const resizedDetections = faceapi.resizeResults(detection, displaySize);
-                        faceapi.draw.drawDetections(canvas, resizedDetections);
-
-                        // Anti-spoofing Quality Checks
-                        if (score < 0.85 || boxW < 140) {
-                            livenessPrompt.textContent = score < 0.85 ? "Face not clear. Avoid photos or glare." : "Face too small. Move closer.";
-                            livenessPrompt.style.borderColor = "red";
-                            livenessState = 0;
-                            hasBlinked = false;
-                            hasTurnedHead = false;
-                            blinkFrames = 0;
-                            earHistory = [];
-                            rescanBtn.disabled = true;
-                            setTimeout(processFrame, 20);
-                            return;
-                        }
-
-                        faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
-
-                        const landmarks = detection.landmarks;
-
-                        // Anti-Spoofing: Detect Corrupted Landmarks (Phone Screen Glare / Moiré Patterns)
-                        const leftEye = landmarks.getLeftEye();
-                        const rightEye = landmarks.getRightEye();
-                        const mouth = landmarks.getMouth();
-                        
-                        const isLeftEyeInverted = leftEye[1].y > leftEye[5].y || leftEye[2].y > leftEye[4].y;
-                        const isRightEyeInverted = rightEye[1].y > rightEye[5].y || rightEye[2].y > rightEye[4].y;
-                        const isMouthInverted = mouth[3].y > mouth[9].y;
-                        const isAsymmetric = Math.abs(calculateEAR(leftEye) - calculateEAR(rightEye)) > 0.15;
-
-                        if (isLeftEyeInverted || isRightEyeInverted || isMouthInverted || isAsymmetric) {
-                            livenessPrompt.textContent = "Screen/Glare detected! Please use a real live face.";
-                            livenessPrompt.style.borderColor = "red";
-                            livenessState = 0;
-                            hasBlinked = false;
-                            hasTurnedHead = false;
-                            blinkFrames = 0;
-                            earHistory = [];
-                            rescanBtn.disabled = true;
-                            setTimeout(processFrame, 20);
-                            return;
-                        }
-
-                        if (livenessState === 0) {
-                            livenessPrompt.textContent = "Please Blink slowly and Turn your head";
-                            livenessPrompt.style.borderColor = "yellow";
-                            livenessState = 1;
-                            currentDescriptor = detection.descriptor;
-                            blinkFrames = 0;
-                            earHistory = [];
-                        }
-                        else if (livenessState === 1) {
-                            const currentEAR = (calculateEAR(landmarks.getLeftEye()) + calculateEAR(landmarks.getRightEye())) / 2.0;
-                            earHistory.push(currentEAR);
-                            if (earHistory.length > 30) earHistory.shift();
-
-                            const recentMaxEAR = earHistory.length > 0 ? Math.max(...earHistory) : currentEAR;
-
-                            const noseTip = landmarks.getNose()[3];
-                            const jaw = landmarks.getJawOutline();
-                            const distLeft = Math.abs(noseTip.x - jaw[0].x);
-                            const distRight = Math.abs(jaw[16].x - noseTip.x);
-                            const headRatio = Math.max(distLeft / distRight, distRight / distLeft);
-                            const isLookingStraight = headRatio < 1.5;
-
-                            // NEW Blink Logic: Detect a definitive drop compared to recent history
-                            if (!hasBlinked && earHistory.length >= 3) {
-                                if (isLookingStraight && currentEAR < (recentMaxEAR * 0.82)) {
-                                    blinkFrames++;
-                                    if (blinkFrames >= 1) {
-                                        hasBlinked = true;
-                                    }
-                                } else {
-                                    blinkFrames = 0;
-                                }
-                            }
-
-                            // Check Head Turn
-                            if (!hasTurnedHead) {
-                                if (headRatio > 2.8) {
-                                    hasTurnedHead = true;
-                                }
-                            }
-
-                            // Dynamic prompt updates
-                            if (hasBlinked && !hasTurnedHead) {
-                                livenessPrompt.textContent = "Blink detected! Now Turn your head left or right.";
-                                livenessPrompt.style.color = "white";
-                            } else if (!hasBlinked && hasTurnedHead) {
-                                livenessPrompt.textContent = "Head Turn detected! Now Blink slowly.";
-                                livenessPrompt.style.color = "white";
-                            }
-
-                            // Both Verified
-                            if (hasBlinked && hasTurnedHead) {
-                                livenessPrompt.textContent = "Ready! Click 'Save New Face Data'";
-                                livenessPrompt.style.background = "rgba(16, 185, 129, 0.2)";
-                                livenessPrompt.style.borderColor = "var(--accent)";
-                                livenessState = 3;
-                                rescanBtn.disabled = false;
-                            }
-                        }
-                    } else {
-                        livenessPrompt.textContent = "Face lost. Please look at the camera.";
-                        livenessPrompt.style.borderColor = "red";
-                        livenessState = 0;
-                        hasBlinked = false;
-                        hasTurnedHead = false;
-                        blinkFrames = 0;
-                        earHistory = [];
-                        rescanBtn.disabled = true;
-                    }
-                    setTimeout(processFrame, 20); // Faster recursive loop
-                }
-
-                processFrame();
-            };
-
-        } catch (err) {
-            loadingText.innerHTML = `Error: ${err.message}`;
-        }
-    });
-
-    rescanBtn.addEventListener('click', async () => {
-        if (livenessState !== 3 || !currentDescriptor) return;
-
-        rescanBtn.disabled = true;
-        rescanBtn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px;"></div> Saving...';
-
-        try {
-            const response = await fetch('/api/rescan_face/', {
+            const res = await fetch('/api/student/day-details/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ descriptor: Array.from(currentDescriptor) })
+                body: JSON.stringify({ date: dateStr })
             });
-
-            const data = await response.json();
-
-            rescanStatus.textContent = data.message;
-            rescanStatus.className = `status-message show ${data.success ? 'status-success' : 'status-error'}`;
-
-            if (data.success) {
-                setTimeout(() => {
-                    // Turn off camera stream
-                    video.srcObject.getTracks().forEach(t => t.stop());
-                    window.location.reload();
-                }, 1500);
+            const data = await res.json();
+            if (data.success && data.subjects.length > 0) {
+                let html = `<h4 style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">Schedule: ${dateStr}</h4>`;
+                data.subjects.forEach(s => {
+                    html += `<div class="subject-item" style="border-left: 5px solid ${s.attended ? 'var(--accent)' : '#ef4444'};">
+                        <div>
+                            <div style="font-weight: 800;">${s.subject_name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${s.start_time} - ${s.end_time}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="badge" style="background: ${s.attended ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; color: ${s.attended ? 'var(--accent)' : '#ef4444'};">
+                                ${s.attended ? 'PRESENT' : 'ABSENT'}
+                            </span>
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
             } else {
-                rescanBtn.disabled = false;
-                rescanBtn.innerHTML = 'Save New Face Data';
+                container.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--text-muted); background: #f1f5f9; border-radius: 20px; border: 2px dashed #cbd5e1;">No classes recorded</div>';
             }
-        } catch (err) {
-            rescanStatus.textContent = `Error: ${err.message}`;
-            rescanStatus.className = 'status-message show status-error';
-            rescanBtn.disabled = false;
-            rescanBtn.innerHTML = 'Save New Face Data';
-        }
+        } catch (err) { container.innerHTML = 'Error loading details'; }
+    }
+
+    function changeMonth(dir) { currentDate.setMonth(currentDate.getMonth() + dir); renderCalendar(); }
+    renderCalendar();
+
+    document.getElementById('updateBtn').addEventListener('click', async () => {
+        const phone = document.getElementById('phoneNumber').value;
+        const status = document.getElementById('updateStatus');
+        try {
+            const res = await fetch('/api/update_profile/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone_number: phone })
+            });
+            const data = await res.json();
+            if (data.success) { status.innerText = 'Updated!'; status.style.color = 'var(--accent)'; }
+            else { status.innerText = data.message; status.style.color = 'red'; }
+        } catch (err) { status.innerText = 'Error'; }
     });
 </script>
 {% endblock %}

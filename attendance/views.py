@@ -179,7 +179,20 @@ def api_match(request):
                             active_subject = s
                             break
                 
+                # Check if there was ANY permission today, even if time passed
+                has_any_permission_today = permitted_subjects.exists()
+                
                 if not active_subject:
+                    # Check if there is a subject that WAS permitted today but time has passed
+                    ended_subject = None
+                    for perm in permitted_subjects:
+                        if perm.subject.end_time and current_time > perm.subject.end_time:
+                            ended_subject = perm.subject
+                            break
+                    
+                    if ended_subject:
+                        return JsonResponse({'success': False, 'message': f'The session for {ended_subject.name} has already ended.'}, status=400)
+                    
                     return JsonResponse({'success': False, 'message': 'No permitted subject is currently in session for your semester.'}, status=400)
 
                 # Check if attendance already marked for THIS subject today
@@ -244,30 +257,32 @@ def dashboard_view(request):
     try:
         user = UserProfile.objects.get(user_id=user_id)
         
-        # Calculate attendance statistics based on subject sessions
-        # Total sessions the student WAS EXPECTED to attend (subjects in their semester that were permitted)
-        expected_sessions_count = SubjectPermission.objects.filter(
+        # --- ANALYTICS LOGIC ---
+        # 1. Total Attended (All successful attendance marks)
+        attended_count = Attendance.objects.filter(user=user).count()
+
+        # 2. Total Required (Count of ALL subject permissions for this semester)
+        total_required = SubjectPermission.objects.filter(
             subject__semester=user.semester,
             subject__institute=user.institute
         ).count()
         
-        # Total sessions the student ACTUALLY attended
-        attended_sessions_count = Attendance.objects.filter(
-            user=user,
-            subject__isnull=False
-        ).count()
-        
-        attendance_percentage = 0
-        if expected_sessions_count > 0:
-            attendance_percentage = int((attended_sessions_count / expected_sessions_count) * 100)
-            if attendance_percentage > 100:
-                attendance_percentage = 100
+        # Calculate percentage (capped at 100% for safety)
+        if total_required > 0:
+            attendance_percentage = min(round((attended_count / total_required) * 100, 1), 100.0)
+        else:
+            # If no permissions exist but they have attendance, show 100%
+            attendance_percentage = 100.0 if attended_count > 0 else 0.0
+
+        # Get all subjects for this student's semester
+        subjects_list = Subject.objects.filter(semester=user.semester, institute=user.institute)
 
         context = {
             'user': user,
-            'total_class_days': expected_sessions_count, # Renaming label in UI might be good but let's keep it for now
-            'total_attended': attended_sessions_count,
-            'attendance_percentage': attendance_percentage
+            'total_class_days': total_required,
+            'total_attended': attended_count,
+            'attendance_percentage': attendance_percentage,
+            'subjects': subjects_list
         }
         return render(request, 'attendance/dashboard.html', context)
     except UserProfile.DoesNotExist:
@@ -666,11 +681,15 @@ def institute_daily_schedule_view(request):
         # Get which subjects have permission for today
         permitted_ids = SubjectPermission.objects.filter(date=today, subject__institute=institute).values_list('subject_id', flat=True)
         
+        now = timezone.localtime()
+        current_time = now.time()
+        
         return render(request, 'attendance/institute_daily_schedule.html', {
             'institute': institute,
             'subjects': subjects,
             'permitted_ids': list(permitted_ids),
             'today': today,
+            'current_time': current_time,
             'semester_choices': UserProfile.SEMESTER_CHOICES
         })
     except Institute.DoesNotExist:
@@ -728,3 +747,94 @@ def api_institute_delete_subject(request):
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)}, status=500)
     return JsonResponse({'success': False, 'message': 'Invalid method.'}, status=405)
+
+@csrf_exempt
+def api_student_day_details(request):
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+        date_str = data.get('date') # Format: YYYY-MM-DD
+        if not date_str:
+            return JsonResponse({'success': False, 'message': 'Date required'}, status=400)
+        
+        target_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        user = UserProfile.objects.get(user_id=user_id)
+        
+        # Get all permissions for this student's semester on this date
+        permissions = SubjectPermission.objects.filter(
+            date=target_date,
+            subject__semester=user.semester,
+            subject__institute=user.institute
+        ).select_related('subject')
+        
+        # Get all attendance records for this student on this date
+        day_start = timezone.make_aware(datetime.datetime.combine(target_date, datetime.time.min))
+        day_end = timezone.make_aware(datetime.datetime.combine(target_date, datetime.time.max))
+        
+        attendances = Attendance.objects.filter(
+            user=user,
+            timestamp__range=(day_start, day_end)
+        )
+        
+        results = []
+        for perm in permissions:
+            subj = perm.subject
+            # Check if attended this specific subject
+            att = attendances.filter(subject=subj).first()
+            
+            results.append({
+                'subject_name': subj.name,
+                'start_time': subj.start_time.strftime('%H:%M') if subj.start_time else 'N/A',
+                'end_time': subj.end_time.strftime('%H:%M') if subj.end_time else 'N/A',
+                'attended': att is not None,
+                'status': att.status if att else 'Absent',
+                'time': att.timestamp.strftime('%H:%M') if att else None
+            })
+            
+        return JsonResponse({'success': True, 'subjects': results})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+def api_institute_rescan_student_face(request):
+    if request.method == "POST":
+        institute_id = request.session.get('institute_id')
+        if not institute_id:
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=401)
+        
+        try:
+            data = json.loads(request.body)
+            student_id = data.get('student_id')
+            descriptor = data.get('descriptor')
+            inst_pass = data.get('institute_password')
+            stud_pass = data.get('student_password')
+            
+            if not all([student_id, descriptor, inst_pass, stud_pass]):
+                return JsonResponse({'success': False, 'message': 'Missing required fields.'}, status=400)
+            
+            institute = Institute.objects.get(id=institute_id)
+            # Verify Institute Password
+            if not check_password(inst_pass, institute.password):
+                return JsonResponse({'success': False, 'message': 'Incorrect institute password.'}, status=403)
+            
+            # Verify Student exists and belongs to this institute
+            student = UserProfile.objects.get(user_id=student_id, institute=institute)
+            # Verify Student Password
+            if not check_password(stud_pass, student.password):
+                return JsonResponse({'success': False, 'message': 'Incorrect student password.'}, status=403)
+            
+            # Update Face Encoding
+            student.face_encoding = json.dumps(descriptor)
+            student.save()
+            
+            return JsonResponse({'success': True, 'message': 'Student face data updated successfully.'})
+            
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'Student not found.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    return JsonResponse({'success': False}, status=405)

@@ -32,4 +32,6 @@ urlpatterns = [
     path('api/institute/add_subject/', views.api_institute_add_subject, name='api_institute_add_subject'),
     path('api/institute/delete_subject/', views.api_institute_delete_subject, name='api_institute_delete_subject'),
     path('api/institute/toggle_permission/', views.api_institute_toggle_permission, name='api_institute_toggle_permission'),
+    path('api/institute/rescan_student_face/', views.api_institute_rescan_student_face, name='api_institute_rescan_student_face'),
+    path('api/student/day-details/', views.api_student_day_details, name='api_student_day_details'),
 ]

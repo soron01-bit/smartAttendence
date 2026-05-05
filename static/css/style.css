@@ -21,11 +21,11 @@ body {
     font-family: 'Outfit', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-main);
-    height: 100vh; /* Viewport-based layout */
+    min-height: 100vh; /* Allow content to grow beyond viewport */
     margin: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* No vertical scroll on body */
+    overflow-y: auto; /* Enable vertical scroll */
     position: relative;
     /* Subtle modern mesh gradient pattern */
     background-image: 

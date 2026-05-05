@@ -147,21 +147,41 @@
                                 </div>
 
                                 <div class="action-area">
-                                    <button class="toggle-btn {% if subject.id in permitted_ids %}revoke{% else %}give{% endif %}" 
-                                            onclick="togglePermission('{{ subject.id }}', this)" 
-                                            data-active="{% if subject.id in permitted_ids %}true{% else %}false{% endif %}">
-                                        {% if subject.id in permitted_ids %}Revoke Permission{% else %}Give Permission{% endif %}
-                                    </button>
-                                    
-                                    <div class="status-indicator" id="status-{{ subject.id }}">
-                                        {% if subject.id in permitted_ids %}
-                                            <div class="dot" style="background: var(--accent);"></div>
-                                            <span style="color: var(--accent);">Permitted for today</span>
-                                        {% else %}
-                                            <div class="dot" style="background: var(--text-muted);"></div>
-                                            <span style="color: var(--text-muted);">No permission</span>
-                                        {% endif %}
-                                    </div>
+                                    {% if subject.end_time < current_time %}
+                                        <button class="toggle-btn" disabled style="background: var(--border); color: var(--text-muted); cursor: not-allowed;">
+                                            Session Ended
+                                        </button>
+                                        <div class="status-indicator">
+                                            <div class="dot" style="background: #ef4444;"></div>
+                                            <span style="color: #ef4444;">Attendance Closed</span>
+                                        </div>
+                                    {% elif subject.start_time > current_time and subject.id in permitted_ids %}
+                                        <button class="toggle-btn revoke" 
+                                                onclick="togglePermission('{{ subject.id }}', this)" 
+                                                data-active="true">
+                                            Revoke Permission
+                                        </button>
+                                        <div class="status-indicator">
+                                            <div class="dot" style="background: #fbbf24;"></div>
+                                            <span style="color: #fbbf24;">Upcoming Session</span>
+                                        </div>
+                                    {% else %}
+                                        <button class="toggle-btn {% if subject.id in permitted_ids %}revoke{% else %}give{% endif %}" 
+                                                onclick="togglePermission('{{ subject.id }}', this)" 
+                                                data-active="{% if subject.id in permitted_ids %}true{% else %}false{% endif %}">
+                                            {% if subject.id in permitted_ids %}Revoke Permission{% else %}Give Permission{% endif %}
+                                        </button>
+                                        
+                                        <div class="status-indicator" id="status-{{ subject.id }}">
+                                            {% if subject.id in permitted_ids %}
+                                                <div class="dot" style="background: var(--accent);"></div>
+                                                <span style="color: var(--accent);">Permitted for today</span>
+                                            {% else %}
+                                                <div class="dot" style="background: var(--text-muted);"></div>
+                                                <span style="color: var(--text-muted);">No permission</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                             {% endif %}
