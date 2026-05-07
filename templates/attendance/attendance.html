@@ -43,13 +43,24 @@
 
     let locationError = null;
 
+    let highAccuracyRetry = true;
+    let watchId = null;
+
     function startLocationWatch() {
         if (!navigator.geolocation) {
             locationError = "Geolocation is not supported by this browser.";
             return;
         }
 
-        navigator.geolocation.watchPosition(
+        const options = {
+            enableHighAccuracy: highAccuracyRetry,
+            timeout: 30000,
+            maximumAge: 10000
+        };
+
+        if (watchId) navigator.geolocation.clearWatch(watchId);
+
+        watchId = navigator.geolocation.watchPosition(
             (pos) => {
                 currentLat = pos.coords.latitude;
                 currentLon = pos.coords.longitude;
@@ -63,9 +74,15 @@
                     locationError = "Location unavailable. Please check your device GPS.";
                 } else if (err.code === 3) {
                     locationError = "GPS timeout. Still trying to acquire signal...";
+                    // Fallback to low accuracy if high accuracy times out
+                    if (highAccuracyRetry) {
+                        console.log("High accuracy timed out. Falling back to low accuracy...");
+                        highAccuracyRetry = false;
+                        startLocationWatch();
+                    }
                 }
             },
-            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            options
         );
     }
 

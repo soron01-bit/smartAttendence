@@ -250,15 +250,9 @@
                     <label>Current Status</label>
                     <input type="text" value="{{ user.get_semester_display }} | Roll: {{ user.roll_number }}" readonly>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="input-box">
-                        <label>Section</label>
-                        <input type="text" value="{{ user.section|default:'-' }}" readonly>
-                    </div>
-                    <div class="input-box">
-                        <label>Group</label>
-                        <input type="text" value="{{ user.student_group|default:'-' }}" readonly>
-                    </div>
+                <div class="input-box">
+                    <label>Group</label>
+                    <input type="text" value="{{ user.student_group|default:'-' }}" readonly>
                 </div>
                 <div class="input-box">
                     <label>Contact</label>

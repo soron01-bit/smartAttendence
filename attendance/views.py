@@ -60,7 +60,6 @@ def api_register(request):
             department = data.get('department', '')
             year = data.get('year', '')
             semester = data.get('semester', '')
-            section = data.get('section', '')
             student_group = data.get('student_group', '')
             roll_number = data.get('roll_number', '')
 
@@ -80,7 +79,6 @@ def api_register(request):
             phone_number = data.get('phone_number', '')
             blood_group = data.get('blood_group', '')
             guardian_name = data.get('guardian_name', '')
-            designation = data.get('designation', '')
 
             # Generate secure random password
             raw_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
@@ -92,13 +90,11 @@ def api_register(request):
                 department=department,
                 year=year,
                 semester=semester,
-                section=section,
                 student_group=student_group,
                 roll_number=roll_number,
                 phone_number=phone_number,
                 blood_group=blood_group,
                 guardian_name=guardian_name,
-                designation=designation,
                 password=make_password(raw_password),
                 face_encoding=json.dumps(descriptor)
             )
@@ -328,16 +324,6 @@ def api_update_profile(request):
             if user.role == 'student':
                 # Students can only update their phone number
                 if 'phone_number' in data: user.phone_number = data['phone_number']
-            else:
-                # Others can update all fields
-                if 'name' in data: user.name = data['name']
-                if 'department' in data: user.department = data['department']
-                if 'grade_class' in data: user.grade_class = data['grade_class']
-                if 'roll_number' in data: user.roll_number = data['roll_number']
-                if 'phone_number' in data: user.phone_number = data['phone_number']
-                if 'blood_group' in data: user.blood_group = data['blood_group']
-                if 'guardian_name' in data: user.guardian_name = data['guardian_name']
-                if 'designation' in data: user.designation = data['designation']
             
             user.save()
             return JsonResponse({'success': True, 'message': 'Profile updated successfully'})
@@ -515,11 +501,7 @@ def api_institute_edit_user(request):
                 if 'year' in data: user_to_edit.year = data['year']
                 if 'semester' in data: user_to_edit.semester = data['semester']
                 if 'department' in data: user_to_edit.department = data['department']
-                if 'section' in data: user_to_edit.section = data['section']
                 if 'student_group' in data: user_to_edit.student_group = data['student_group']
-            elif user_to_edit.role == 'teacher':
-                if 'department' in data: user_to_edit.department = data['department']
-                if 'designation' in data: user_to_edit.designation = data['designation']
                 
             user_to_edit.save()
             return JsonResponse({'success': True, 'message': 'User updated successfully.'})

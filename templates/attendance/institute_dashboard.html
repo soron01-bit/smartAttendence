@@ -61,6 +61,9 @@
     </div>
 
     <h3>Navigation</h3>
+    <a href="{% url 'register' %}?role=student&code={{ institute.unique_code }}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
+        Register New Student
+    </a>
     <a href="{% url 'institute_attendance_logs' %}" class="btn" style="margin-bottom: 1rem; padding: 0.8rem; font-size: 1rem;">
         View Attendance
     </a>
@@ -119,9 +122,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h2 style="margin: 0;">Registered Members</h2>
             <div style="display: flex; gap: 0.5rem; background: var(--surface); padding: 0.25rem; border-radius: 10px;">
-                <button class="filter-tab active" onclick="filterMembers('all', this)">All</button>
-                <button class="filter-tab" onclick="filterMembers('student', this)">Students</button>
-                <button class="filter-tab" onclick="filterMembers('teacher', this)">Teachers</button>
+                <button class="filter-tab active" onclick="filterMembers('all', this)">All Registered Students</button>
             </div>
         </div>
         {% if members %}
@@ -146,14 +147,11 @@
                             {% if member.role == 'student' %}
                                 <div style="margin-bottom: 4px;">{{ member.get_year_display|default:"-" }} | {{ member.get_semester_display|default:"-" }}</div>
                                 <div style="font-weight: 500; color: var(--accent); margin-bottom: 4px;">{{ member.department|default:"Unspecified Dept" }}</div>
-                                <div style="font-size: 0.85em;">Sec: {{ member.section|default:"-" }} | Grp: {{ member.student_group|default:"-" }} | Roll: <span style="font-weight: 600;">{{ member.roll_number|default:"-" }}</span></div>
-                            {% else %}
-                                <div style="font-weight: 500; color: var(--accent);">{{ member.department|default:"-" }}</div>
-                                <div>{{ member.designation|default:"-" }}</div>
+                                <div style="font-size: 0.85em;">Grp: {{ member.student_group|default:"-" }} | Roll: <span style="font-weight: 600;">{{ member.roll_number|default:"-" }}</span></div>
                             {% endif %}
                         </td>
                         <td style="padding: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button onclick="openEditModal('{{ member.user_id }}', '{{ member.role }}', '{{ member.year|default_if_none:'' }}', '{{ member.semester|default_if_none:'' }}', '{{ member.section|default_if_none:'' }}', '{{ member.student_group|default_if_none:'' }}', '{{ member.department|default_if_none:'' }}', '{{ member.designation|default_if_none:'' }}', '{{ member.roll_number|default_if_none:'' }}')"
+                            <button onclick="openEditModal('{{ member.user_id }}', '{{ member.role }}', '{{ member.year|default_if_none:'' }}', '{{ member.semester|default_if_none:'' }}', '{{ member.student_group|default_if_none:'' }}', '{{ member.department|default_if_none:'' }}', '{{ member.roll_number|default_if_none:'' }}')"
                                 style="background: rgba(99, 102, 241, 0.1); color: var(--accent); border: 1px solid var(--accent); padding: 0.4rem 0.8rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Edit</button>
                             {% if member.role == 'student' %}
                             <button onclick="openRescanModal('{{ member.user_id }}', '{{ member.name }}')"
@@ -226,10 +224,6 @@
                     <input type="text" id="editStudentDept" placeholder="E.g. Computer Science">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label>Section</label>
-                    <input type="text" id="editSection" placeholder="E.g. A">
-                </div>
-                <div class="input-group" style="margin-bottom: 0;">
                     <label>Group</label>
                     <input type="text" id="editGroup" placeholder="E.g. G1">
                 </div>
@@ -239,16 +233,6 @@
                 </div>
             </div>
 
-            <div id="editTeacherFields" style="display: none; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="input-group" style="margin-bottom: 0;">
-                    <label>Department</label>
-                    <input type="text" id="editDepartment">
-                </div>
-                <div class="input-group" style="margin-bottom: 0;">
-                    <label>Designation</label>
-                    <input type="text" id="editDesignation">
-                </div>
-            </div>
 
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                 <button class="btn" onclick="saveUserEdit()" style="flex: 1;">Save Changes</button>
@@ -290,29 +274,20 @@
 {% block scripts %}
 <script>
     // Modal Logic
-    function openEditModal(userId, role, year, semester, section, group, dept, desig, roll) {
+    function openEditModal(userId, role, year, semester, group, dept, roll) {
         document.getElementById('editUserId').value = userId;
         document.getElementById('editUserRole').value = role;
         
         const studentFields = document.getElementById('editStudentFields');
-        const teacherFields = document.getElementById('editTeacherFields');
 
         if (role === 'student') {
             studentFields.style.display = 'grid';
-            teacherFields.style.display = 'none';
             
             document.getElementById('editYear').value = year;
             document.getElementById('editSemester').value = semester;
             document.getElementById('editStudentDept').value = dept;
-            document.getElementById('editSection').value = section;
             document.getElementById('editGroup').value = group;
             document.getElementById('editRollNumber').value = roll;
-        } else {
-            document.getElementById('editStudentFields').style.display = 'none';
-            document.getElementById('editTeacherFields').style.display = 'block';
-            
-            document.getElementById('editDepartment').value = dept;
-            document.getElementById('editDesignation').value = desig;
         }
         
         document.getElementById('editUserModal').style.display = 'flex';
@@ -333,12 +308,8 @@
             payload.year = document.getElementById('editYear').value;
             payload.semester = document.getElementById('editSemester').value;
             payload.department = document.getElementById('editStudentDept').value;
-            payload.section = document.getElementById('editSection').value;
             payload.student_group = document.getElementById('editGroup').value;
             payload.roll_number = document.getElementById('editRollNumber').value;
-        } else {
-            payload.department = document.getElementById('editDepartment').value;
-            payload.designation = document.getElementById('editDesignation').value;
         }
 
         try {
@@ -392,7 +363,7 @@
                 document.getElementById('lon').value = position.coords.longitude;
             }, (error) => {
                 alert('Error getting location: ' + error.message);
-            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 10000 });
         } else {
             alert('Geolocation is not supported by this browser.');
         }

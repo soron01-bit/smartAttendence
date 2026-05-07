@@ -33,7 +33,6 @@ class Institute(models.Model):
 class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('student', 'Student'),
-        ('teacher', 'Teacher'),
     )
 
     YEAR_CHOICES = [
@@ -51,10 +50,9 @@ class UserProfile(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='members', null=True, blank=True)
     
     # Specific fields
-    department = models.CharField(max_length=100, blank=True, null=True)     # For teachers
+    department = models.CharField(max_length=100, blank=True, null=True)     # For students
     year = models.CharField(max_length=10, choices=YEAR_CHOICES, blank=True, null=True) # For students
     semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES, blank=True, null=True) # For students
-    section = models.CharField(max_length=50, blank=True, null=True)         # For students
     student_group = models.CharField(max_length=50, blank=True, null=True)   # For students
     roll_number = models.CharField(max_length=50, blank=True, null=True)     # For students
     
@@ -62,7 +60,6 @@ class UserProfile(models.Model):
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     blood_group = models.CharField(max_length=5, blank=True, null=True)
     guardian_name = models.CharField(max_length=100, blank=True, null=True)  # For students
-    designation = models.CharField(max_length=100, blank=True, null=True)    # For teachers
 
     # Authentication
     password = models.CharField(max_length=128, blank=True, null=True)

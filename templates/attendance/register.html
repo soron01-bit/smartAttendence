@@ -83,7 +83,21 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
+    const instCodeParam = urlParams.get('code');
     const dynamicFields = document.getElementById('dynamicFields');
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (instCodeParam) {
+            const instInput = document.getElementById('instituteCode');
+            if (instInput) {
+                instInput.value = instCodeParam;
+                // Optional: make it readonly if provided by admin
+                instInput.readOnly = true;
+                instInput.style.background = 'var(--bg-color)';
+                instInput.style.opacity = '0.8';
+            }
+        }
+    });
 
     if (role === 'student') {
         dynamicFields.innerHTML = `
@@ -116,10 +130,6 @@
                 <input type="text" id="department" placeholder="E.g. Computer Science">
             </div>
             <div class="input-group">
-                <label for="section">Section</label>
-                <input type="text" id="section" placeholder="E.g. A, B, C">
-            </div>
-            <div class="input-group">
                 <label for="studentGroup">Group</label>
                 <input type="text" id="studentGroup" placeholder="E.g. G1, G2">
             </div>
@@ -138,25 +148,6 @@
             <div class="input-group">
                 <label for="guardianName">Guardian Name (Optional)</label>
                 <input type="text" id="guardianName" placeholder="E.g. Jane Doe">
-            </div>
-        `;
-    } else if (role === 'teacher') {
-        dynamicFields.innerHTML = `
-            <div class="input-group">
-                <label for="department">Department</label>
-                <input type="text" id="department" placeholder="E.g. Mathematics">
-            </div>
-            <div class="input-group">
-                <label for="designation">Designation</label>
-                <input type="text" id="designation" placeholder="E.g. Senior Professor">
-            </div>
-            <div class="input-group">
-                <label for="phoneNumber">Phone Number (Optional)</label>
-                <input type="text" id="phoneNumber" placeholder="E.g. +1 234 567 890">
-            </div>
-            <div class="input-group">
-                <label for="bloodGroup">Blood Group (Optional)</label>
-                <input type="text" id="bloodGroup" placeholder="E.g. O+">
             </div>
         `;
     } else {
@@ -343,13 +334,9 @@
             extraParams.year = document.getElementById('year').value;
             extraParams.semester = document.getElementById('semester').value;
             extraParams.department = document.getElementById('department').value.trim();
-            extraParams.section = document.getElementById('section').value.trim();
             extraParams.student_group = document.getElementById('studentGroup').value.trim();
             extraParams.roll_number = document.getElementById('rollNumber').value.trim();
             extraParams.guardian_name = document.getElementById('guardianName').value.trim();
-        } else if (role === 'teacher') {
-            extraParams.department = document.getElementById('department').value.trim();
-            extraParams.designation = document.getElementById('designation').value.trim();
         }
 
         extraParams.phone_number = document.getElementById('phoneNumber').value.trim();
